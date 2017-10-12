@@ -69,7 +69,7 @@ def detectFaces(img):
     cv2.imshow("detectface",img)
     return result
 
-def skinModel(img):
+#def skinModel(img):
 
 
 if __name__ == '__main__':
