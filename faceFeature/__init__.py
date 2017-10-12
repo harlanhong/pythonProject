@@ -159,7 +159,7 @@ def selectThreshold(img):
     temp = 0
     for i in range(256):
         temp += hist_cv[i,0];
-        if temp/sum > 0.85:
+        if temp/sum > 0.95:
             print(i)
             return i;
 
@@ -190,9 +190,16 @@ def removeBackground(srcImg):
     cv2.imshow("floodfill", img)
     return img
 
+
+def hairComplete(img):
+
+    return None
+
+
+
 if __name__ == '__main__':
-    srcImg = cv2.imread("img/1.jpg", 1);
-    srcImgCopy = cv2.imread("img/1.jpg", 1);
+    srcImg = cv2.imread("img/7.jpg", 1);
+    srcImgCopy = cv2.imread("img/7.jpg", 1);
     cv2.imshow("srcimg",srcImg)
     #grayWorld(srcImg)
 
@@ -215,9 +222,27 @@ if __name__ == '__main__':
     #两个边缘进行一个与操作，保留细节
     th3 = cv2.bitwise_or(canny,th2)
 
-   # kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))
-   #eroded = cv2.erode(th3, kernel)
+    kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))
+
+    th3 = cv2.dilate(th3, kernel)
+    th3 = cv2.erode(th3, kernel)
+    th3 = cv2.dilate(th3, kernel)
+    th3 = cv2.erode(th3, kernel)
+    th3 = cv2.dilate(th3, kernel)
+    th3 = cv2.erode(th3, kernel)
+    kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))
+    # 闭运算,去除孤立点
+    th3 = cv2.morphologyEx(th3, cv2.MORPH_CLOSE, kernel)
+
     ret, th3 = thresholdImg(th3, 100)
+    th3 = cv2.medianBlur(th3,3)
+    th3 = cv2.medianBlur(th3,5)
+
+    #为使得轮廓更加明显，用得到的图像与canny做一个与操作
+    ret, th3 = thresholdImg(th3, 100)
+    th3 = cv2.bitwise_or(canny, th3)
+    ret, th3 = thresholdImg(th3, 100)
+    th3 = cv2.erode(th3, kernel)
     cv2.imshow("result", th3)
 
     cv2.waitKey(0);
