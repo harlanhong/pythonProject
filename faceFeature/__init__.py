@@ -198,12 +198,15 @@ def hairComplete(img):
 
 
 if __name__ == '__main__':
-    srcImg = cv2.imread("img/7.jpg", 1);
-    srcImgCopy = cv2.imread("img/7.jpg", 1);
+    srcImg = cv2.imread("img/1.jpg", 1);
+    srcImgCopy = cv2.imread("img/1.jpg", 1);
     cv2.imshow("srcimg",srcImg)
     #grayWorld(srcImg)
 
     #采用XY方向上进行求导提取边缘
+    srcImg = cv2.medianBlur(srcImg,3)
+    srcImgCopy = cv2.medianBlur(srcImgCopy,3)
+
     sobelCombined = sobelEdge(srcImg)
     graySobel = cv2.cvtColor(sobelCombined,cv2.COLOR_RGB2GRAY)
 
@@ -216,6 +219,8 @@ if __name__ == '__main__':
     skinModel(srcImgCopy)
 
     #提取边缘
+
+
     canny = cannyImg(srcImgCopy)
     #因为与操作是针对255像素的，所以要进行一个反转
     ret, th2 = thresholdImg(th, 100)
@@ -243,6 +248,7 @@ if __name__ == '__main__':
     th3 = cv2.bitwise_or(canny, th3)
     ret, th3 = thresholdImg(th3, 100)
     th3 = cv2.erode(th3, kernel)
+    cv2.imshow("canny",canny)
     cv2.imshow("result", th3)
 
     cv2.waitKey(0);
