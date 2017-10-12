@@ -52,8 +52,8 @@ def thresholdImg(img):
 
 def detectFaces(img):
     #print 1
-    face_cascade = cv2.CascadeClassifier("haarcascade_frontalface_default.xml")
-    test = face_cascade.load('haarcascade_frontalface_default.xml')
+    face_cascade = cv2.CascadeClassifier("data/haarcascades/haarcascade_frontalface_default.xml")
+    test = face_cascade.load("data/haarcascades/haarcascade_frontalface_default.xml")
     print(test)
     if img.ndim == 3:
         gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
@@ -68,6 +68,9 @@ def detectFaces(img):
     cv2.rectangle(img, (result[0][0], result[0][1]), (result[0][0] + result[0][2], result[0][1] + result[0][3]), (255, 0, 0), 2)
     cv2.imshow("detectface",img)
     return result
+
+def skinModel(img):
+
 
 if __name__ == '__main__':
     srcImg = cv2.imread("img/1.jpg", 1);
