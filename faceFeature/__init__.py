@@ -203,6 +203,7 @@ if __name__ == '__main__':
     cv2.imshow("srcimg",srcImg)
     #grayWorld(srcImg)
 
+
     #采用XY方向上进行求导提取边缘
     srcImg = cv2.medianBlur(srcImg,3)
     srcImgCopy = cv2.medianBlur(srcImgCopy,3)
