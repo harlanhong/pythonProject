@@ -53,22 +53,45 @@ def detectFaces(srcImg):
     img = srcImg.copy()
     #print 1
     face_cascade = cv2.CascadeClassifier("data/haarcascades/haarcascade_frontalface_default.xml")
-    test = face_cascade.load("data/haarcascades/haarcascade_frontalface_default.xml")
-    print(test)
     if img.ndim == 3:
         gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     else:
         gray = img
     faces = face_cascade.detectMultiScale(gray, 1.2, 5)#1.3and5  counts to the result of face recognation
-    result = []
-    for (x,y,width,height) in faces:
-        result.append((x,y,x+width,y+height))
-        #print result[0]
-        print(len(result))
-    cv2.rectangle(img, (result[0][0], result[0][1]), (result[0][0] + result[0][2], result[0][1] + result[0][3]), (255, 0, 0), 2)
-    cv2.imshow("detectface",img)
-    return result
+    return faces
 
+def detectEyes(srcImg):
+    src = srcImg.copy()
+    faces = detectFaces(src)
+    eye_cascade = cv2.CascadeClassifier('data/haarcascades/haarcascade_eye.xml')
+    gray = cv2.cvtColor(src, cv2.COLOR_BGR2GRAY)
+    result = [[]]
+    for j,(x,y,w,h) in enumerate(faces):
+        cv2.rectangle(src, (x, y), (x + w, y + h), (255, 0, 0), 2)
+        roi_gray = gray[y:y + h, x:x + w]
+        roi_color = src[y:y + h,x:x + w]  # 检测视频中脸部的眼睛，并用vector保存眼睛的坐标、大小（用矩形表示）
+        eyes = eye_cascade.detectMultiScale(roi_gray) #眼睛检测
+        #选择最大的两个框当成眼睛
+        max = 0
+        temp = []
+        index = 0
+        for i,(ex,ey,ew,eh) in enumerate(eyes):
+            if ew*eh>max:
+                max = ew*eh
+                index = i
+                temp = [ex,ey,ew,eh]
+        result[j].append(temp)
+        cv2.rectangle(roi_color, (temp[0], temp[1]), (temp[0] + temp[2], temp[1] + temp[3]), (0, 255, 0), 2)
+        max = 0
+        temp = []
+        for i,(ex,ey,ew,eh) in enumerate(eyes):
+            if ew*eh>max and i != index:
+                max = ew*eh
+                temp = [ex,ey,ew,eh]
+        result[j].append(temp)
+        cv2.rectangle(roi_color, (temp[0], temp[1]), (temp[0] + temp[2], temp[1] + temp[3]), (0, 255, 0), 2)
+    cv2.imshow("eye",src)
+    return faces,result
 def skinModel(srcImg):
     img = srcImg.copy()
     rows, cols, channels = img.shape
@@ -191,15 +214,18 @@ def removeBackground(srcImg):
     return img
 
 
-def hairComplete(img):
+def hairComplete(srcImg):
+    img = srcImg.copy()
+    faces,eyes = detectEyes(img)
 
+    print(len(eyes))
     return None
 
 
 
 if __name__ == '__main__':
-    srcImg = cv2.imread("img/1.jpg", 1);
-    srcImgCopy = cv2.imread("img/1.jpg", 1);
+    srcImg = cv2.imread("img/7.jpg", 1);
+    srcImgCopy = cv2.imread("img/7.jpg", 1);
     cv2.imshow("srcimg",srcImg)
     #grayWorld(srcImg)
 
@@ -252,5 +278,6 @@ if __name__ == '__main__':
     cv2.imshow("canny",canny)
     cv2.imshow("result", th3)
 
+    hairComplete(srcImgCopy)
     cv2.waitKey(0);
 
