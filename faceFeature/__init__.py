@@ -76,20 +76,26 @@ def detectEyes(srcImg):
         temp = []
         index = 0
         for i,(ex,ey,ew,eh) in enumerate(eyes):
-            if ew*eh>max:
+            if ew*eh>max and ex<w and ey<h/2:
                 max = ew*eh
                 index = i
                 temp = [ex,ey,ew,eh]
-        result[j].append(temp)
-        cv2.rectangle(roi_color, (temp[0], temp[1]), (temp[0] + temp[2], temp[1] + temp[3]), (0, 255, 0), 2)
+        if index != 0:
+            result[j].append(temp)
+            cv2.rectangle(roi_color, (temp[0], temp[1]), (temp[0] + temp[2], temp[1] + temp[3]), (0, 255, 0), 2)
         max = 0
         temp = []
+        #用来确认是否找到眼睛
+        flag = 0
         for i,(ex,ey,ew,eh) in enumerate(eyes):
-            if ew*eh>max and i != index:
+            if ew*eh>max and i != index and ex<w and ey<h/2:
+                print(ex,ey,x+w,y+h/2)
                 max = ew*eh
+                flag = 1
                 temp = [ex,ey,ew,eh]
-        result[j].append(temp)
-        cv2.rectangle(roi_color, (temp[0], temp[1]), (temp[0] + temp[2], temp[1] + temp[3]), (0, 255, 0), 2)
+        if flag == 1:
+            result[j].append(temp)
+            cv2.rectangle(roi_color, (temp[0], temp[1]), (temp[0] + temp[2], temp[1] + temp[3]), (0, 255, 0), 2)
     cv2.imshow("eye",src)
     return faces,result
 def skinModel(srcImg):
@@ -217,15 +223,14 @@ def removeBackground(srcImg):
 def hairComplete(srcImg):
     img = srcImg.copy()
     faces,eyes = detectEyes(img)
-
     print(len(eyes))
     return None
 
 
 
 if __name__ == '__main__':
-    srcImg = cv2.imread("img/7.jpg", 1);
-    srcImgCopy = cv2.imread("img/7.jpg", 1);
+    srcImg = cv2.imread("img/1.jpg", 1);
+    srcImgCopy = cv2.imread("img/1.jpg", 1);
     cv2.imshow("srcimg",srcImg)
     #grayWorld(srcImg)
 
