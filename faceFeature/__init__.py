@@ -79,10 +79,10 @@ def detectEyes(srcImg):
             if ew*eh>max and ex<w and ey<h/2:
                 max = ew*eh
                 index = i
-                temp = [ex,ey,ew,eh]
+                temp = (ex+x,ey+y,ew,eh)
         if index != 0:
             result[j].append(temp)
-            cv2.rectangle(roi_color, (temp[0], temp[1]), (temp[0] + temp[2], temp[1] + temp[3]), (0, 255, 0), 2)
+            cv2.rectangle(src, (temp[0], temp[1]), (temp[0] + temp[2], temp[1] + temp[3]), (0, 255, 0), 2)
         max = 0
         temp = []
         #用来确认是否找到眼睛
@@ -92,10 +92,10 @@ def detectEyes(srcImg):
                 print(ex,ey,x+w,y+h/2)
                 max = ew*eh
                 flag = 1
-                temp = [ex,ey,ew,eh]
+                temp = (ex+x,ey+y,ew,eh)
         if flag == 1:
             result[j].append(temp)
-            cv2.rectangle(roi_color, (temp[0], temp[1]), (temp[0] + temp[2], temp[1] + temp[3]), (0, 255, 0), 2)
+            cv2.rectangle(src, (temp[0], temp[1]), (temp[0] + temp[2], temp[1] + temp[3]), (0, 255, 0), 2)
     cv2.imshow("eye",src)
     return faces,result
 def skinModel(srcImg):
@@ -219,21 +219,24 @@ def removeBackground(srcImg):
     cv2.imshow("floodfill", img)
     return img
 
-
 def hairComplete(srcImg):
     img = srcImg.copy()
     faces,eyes = detectEyes(img)
-    print(len(eyes))
-    return None
-
+    for i,(x,y,w,h) in enumerate(faces):
+        for j,eye in enumerate(eyes):
+            for k,(ex,ey,ew,eh) in enumerate(eye):
+                print(k,(ex,ey,ew,eh))
+                #在眼睛下方一个单位距离进行皮肤的平滑处理
+                firstIOR = img[ey+eh:ey+2*eh,ex:ex + ew]
+                cv2.medianBlur(firstIOR,3)
+                cv2.medianBlur(firstIOR,5)
 
 
 if __name__ == '__main__':
-    srcImg = cv2.imread("img/1.jpg", 1);
-    srcImgCopy = cv2.imread("img/1.jpg", 1);
+    srcImg = cv2.imread("img/13.jpg", 1);
+    srcImgCopy = cv2.imread("img/13.jpg", 1);
     cv2.imshow("srcimg",srcImg)
     #grayWorld(srcImg)
-
 
     #采用XY方向上进行求导提取边缘
     srcImg = cv2.medianBlur(srcImg,3)
@@ -247,11 +250,10 @@ if __name__ == '__main__':
     ret, th = thresholdImg(graySobel,keyTH)
 
     #去除背景（无相关操作）
-    removeBackground(srcImgCopy)
-    skinModel(srcImgCopy)
+    #removeBackground(srcImgCopy)
+    #skinModel(srcImgCopy)
 
     #提取边缘
-
 
     canny = cannyImg(srcImgCopy)
     #因为与操作是针对255像素的，所以要进行一个反转
@@ -282,7 +284,6 @@ if __name__ == '__main__':
     th3 = cv2.erode(th3, kernel)
     cv2.imshow("canny",canny)
     cv2.imshow("result", th3)
-
     hairComplete(srcImgCopy)
     cv2.waitKey(0);
 
