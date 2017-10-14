@@ -41,6 +41,7 @@ def sobelEdge(srcImg):
 def thresholdImg(srcImg,keyTH):
     img = srcImg.copy()
     # global thresholding
+    #img = cv2.blur(img, (3, 3))
     ret1, th1 = cv2.threshold(img, keyTH, 255, cv2.THRESH_BINARY_INV)
     # Otsu's thresholding
     ret2, th2 = cv2.threshold(img, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
@@ -57,7 +58,7 @@ def detectFaces(srcImg):
         gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     else:
         gray = img
-    faces = face_cascade.detectMultiScale(gray, 1.2, 5)#1.3and5  counts to the result of face recognation
+    faces = face_cascade.detectMultiScale(gray, 1.3, 5)#1.3and5  counts to the result of face recognation
     return faces
 
 def detectEyes(srcImg):
@@ -225,8 +226,8 @@ def hairComplete(srcImg):
     for i,(x,y,w,h) in enumerate(faces):
         for j,eye in enumerate(eyes):
             for k,(ex,ey,ew,eh) in enumerate(eye):
-                print(k,(ex,ey,ew,eh))
                 #在眼睛下方一个单位距离进行皮肤的平滑处理
+
                 firstIOR = img[ey+eh:ey+2*eh,ex:ex + ew]
                 cv2.medianBlur(firstIOR,3)
                 cv2.medianBlur(firstIOR,5)
@@ -235,6 +236,9 @@ def hairComplete(srcImg):
 if __name__ == '__main__':
     srcImg = cv2.imread("img/13.jpg", 1);
     srcImgCopy = cv2.imread("img/13.jpg", 1);
+    faces = detectFaces(srcImg)
+    srcImg = srcImg[faces[0][1]:faces[0][3],faces[0][0]:faces[0][2]]
+    print(faces[0])
     cv2.imshow("srcimg",srcImg)
     #grayWorld(srcImg)
 
