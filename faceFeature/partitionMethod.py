@@ -230,13 +230,13 @@ def RemoveSmallRegion(src,AreaLimit,CheckMode,NeiborMode):
     # 初始化的图像全部为0，未检查
     PointLabel = np.zeros(src.shape,np.uint8)
     sp = src.shape
-    if(CheckMode == 1):#去除小连通区域的白色点
+    if(CheckMode == 1):#去除小连通区域的白色点,除去白色的
         print("去除小连通域")
         for i in range(sp[0]):
             for j in range(sp[1]):
                 if src[i,j]<10:
                     PointLabel[i,j] = 3#将背景黑色点标记为合格，像素为3
-    else:
+    else: #除去黑色的
         print("去除孔洞")
         for i in range(sp[0]):
             for j in range(sp[1]):
@@ -262,17 +262,17 @@ def RemoveSmallRegion(src,AreaLimit,CheckMode,NeiborMode):
         for j in range(sp[1]):
             if PointLabel[i,j] == 0:
                 GrowBuffer = []
-                GrowBuffer.append((j,i));
+                GrowBuffer.append((i,j))
                 PointLabel[i,j] = 1
                 CheckResult = 0
                 for z in range(len(GrowBuffer)):
                     for q in range(NeihborCount):
                         CurrX = GrowBuffer[z][0]+NeiborPos[q][0]
                         CurrY = GrowBuffer[z][1]+NeiborPos[q][1]
-                        if CurrX>=0 and CurrX<sp[1] and CurrY >=0 and CurrY<sp[0]:
-                            if PointLabel[CurrY,CurrX] == 0:
+                        if CurrX >=0 and CurrX < sp[0] and CurrY >=0 and CurrY<sp[1]:
+                            if PointLabel[CurrX,CurrY] == 0:
                                 GrowBuffer.append((CurrX,CurrY))
-                                PointLabel[CurrY,CurrX] = 1
+                                PointLabel[CurrX,CurrY] = 1
 
 
 if __name__ == '__main__':
