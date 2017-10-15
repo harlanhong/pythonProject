@@ -92,7 +92,7 @@ def skinModel(srcImg):
     # prepare an empty image space
     imgSkin = np.zeros(img.shape, np.uint8)
     # copy original image
-    imgSkin = np.zeros(img.shape,np.uint8)
+    imgSkin = np.zeros((img.shape[0],img.shape[1]),np.uint8)
     ################################################################################
     # define variables for skin rules
     Wcb = 46.97
@@ -146,16 +146,73 @@ def skinModel(srcImg):
                 # display original image and skin image
     cv2.imshow("imgSkin",imgSkin)
     return imgSkin
-trackbar_name = "facethreshold"
-win_name ="threshold"
-def on_threshold(arg):
-    value = cv2.getTrackbarPos(trackbar_name,win_name)
-    imgsrc = cv2.threshold(img,value,255,cv2.THRESH_BINARY)
-    cv2.imshow(win_name,imgsrc)
+
+def removeBackground(srcImg):
+    img = srcImg.copy()
+    sp = img.shape
+    mask = np.zeros((img.shape[0]+2,img.shape[1]+2),np.uint8)
+    cv2.floodFill(img, mask, (5, 5), (255, 255, 255), (3, 3, 3), (3, 3, 3), 8)
+    #mask = np.zeros((img.shape[0]+2,img.shape[1]+2),np.uint8)
+    #cv2.floodFill(img, mask, (5,img.shape[0]-5), (255, 255, 255), (3, 3, 3), (3, 3, 3), 8)
+    cv2.imshow("floodfill", img)
+    return img
+
+def tailorImg(img,faces):
+    if len(faces) == 1:
+        for i,(x,y,w,h) in enumerate(faces):
+            #注意不要越界
+            new_x = x - int(w/3) if x - int(w/3)>0 else 0
+            new_y = y - int(h/3) if y - int(h/3)>0 else 0
+            new_w = w +int(2/3*w) if new_x+w+int(2/3*w)<img.shape[1] else img.shape[1]-new_x
+            new_h = h +int(2/3*h) if new_y+h +int(2/3*h)<img.shape[0] else img.shape[0]-new_y
+            new_img = img[new_y:new_y+new_h,new_x:new_x+new_w]
+            cv2.imshow("new_img",new_img)
+            return new_img
+
+def meanBrightness(imgSKIN,imgGRAY):
+    sp = imgSKIN.shape
+    print(sp)
+    brightness = 0
+    count = 0
+    for i in range(sp[0]):
+        for j in range(sp[1]):
+           if imgSKIN[i,j] >100:
+               brightness += imgGRAY[i,j]
+               count +=1
+    return brightness/count
+
+def skeletonComplete(imgResult,imgSKIN):
+    kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))
+    imgSKIN = cv2.erode(imgSKIN, kernel)
+    imgSKIN = cv2.GaussianBlur(imgSKIN, (7, 7), 0)  # 高斯平滑处理原图像降噪
+    imgSKIN = cv2.dilate(imgSKIN, kernel)
+    ret,new_skin = cv2.threshold(imgSKIN,100,255,cv2.THRESH_BINARY_INV)
+    cv2.imshow("inver",new_skin)
+    img = cv2.GaussianBlur(new_skin, (3, 3), 0)  # 高斯平滑处理原图像降噪
+    canny = cv2.Canny(img, 50, 150)  # apertureSize默认为3
+    ret,skeleton = cv2.threshold(canny,100,255,cv2.THRESH_BINARY_INV)
+    kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))
+    skeleton = cv2.erode(skeleton, kernel)
+    result = cv2.bitwise_and(skeleton,imgResult)
+    cv2.imshow("result", result)
+
 if __name__ == '__main__':
-    img = cv2.imread("img/3.jpg",1)
+    img = cv2.imread("img/11.jpg",1)
+    img = cv2.resize(img,(int(img.shape[1]/2) ,int(img.shape[0]/2)),interpolation=cv2.INTER_CUBIC)
     cv2.imshow("img",img)
-    skin = skinModel(img)
-    cv2.namedWindow(win_name)
-    cv2.createTrackbar(trackbar_name,win_name,100,255,on_threshold)
+    imgFront = removeBackground(img)
+    imgSkin = skinModel(img)
+    faces,eyes = detectEyes(img)
+    imgGray = cv2.cvtColor(img,cv2.COLOR_BGR2GRAY)
+
+    #获取到的人物头像前景图
+    imgFace = tailorImg(imgFront,faces)
+    #获取imgFace的肤色图
+    imgFace_Skin = skinModel(imgFace)
+    imgFace_Gray = cv2.cvtColor(imgFace,cv2.COLOR_BGR2GRAY)
+    theta = meanBrightness(imgSKIN=imgFace_Skin,imgGRAY=imgFace_Gray)
+    print(theta)
+    ret,imgFace_thresh = cv2.threshold(imgFace_Gray,0.7*int(theta),255,cv2.THRESH_BINARY)
+    cv2.imshow("imgFace_thresh",imgFace_thresh)
+    skeletonComplete(imgFace_thresh,imgSKIN=imgFace_Skin)
     cv2.waitKey(0)
