@@ -152,7 +152,7 @@ def removeBackground(srcImg):
     img = srcImg.copy()
     sp = img.shape
     mask = np.zeros((img.shape[0]+2,img.shape[1]+2),np.uint8)
-    cv2.floodFill(img, mask, (5, 5), (255, 255, 255), (3, 3, 3), (3, 3, 3), 8)
+    cv2.floodFill(img, mask, (5, 5), (255, 255, 255), (5, 5, 5), (5, 5, 5), 8)
     #mask = np.zeros((img.shape[0]+2,img.shape[1]+2),np.uint8)
     #cv2.floodFill(img, mask, (5,img.shape[0]-5), (255, 255, 255), (3, 3, 3), (3, 3, 3), 8)
     cv2.imshow("floodfill", img)
@@ -217,14 +217,67 @@ def processImg(img):
     #获取到作阈值化的阈值
     theta = meanBrightness(imgSKIN=imgFace_Skin,imgGRAY=imgFace_Gray)
     #进行阈值化
+    cv2.imshow("imgFace_gray",imgFace_Gray)
     ret,imgFace_thresh = cv2.threshold(imgFace_Gray,0.7*int(theta),255,cv2.THRESH_BINARY)
     cv2.imshow("face_threshold",imgFace_thresh)
     #轮廓补充
     result = skeletonComplete(imgFace_thresh,imgSKIN=imgFace_Skin)
     return result
+
+def RemoveSmallRegion(src,AreaLimit,CheckMode,NeiborMode):
+    RemoveCount = 0;
+    # 新建一幅标签图像初始化为0像素点，为了记录每个像素点检验状态的标签，0代表未检查，1代表正在检查, 2代表检查不合格（需要反转颜色），3代表检查合格或不需检查
+    # 初始化的图像全部为0，未检查
+    PointLabel = np.zeros(src.shape,np.uint8)
+    sp = src.shape
+    if(CheckMode == 1):#去除小连通区域的白色点
+        print("去除小连通域")
+        for i in range(sp[0]):
+            for j in range(sp[1]):
+                if src[i,j]<10:
+                    PointLabel[i,j] = 3#将背景黑色点标记为合格，像素为3
+    else:
+        print("去除孔洞")
+        for i in range(sp[0]):
+            for j in range(sp[1]):
+                if src[i,j]>10:
+                    PointLabel[i,j] = 3#如果原图是白色区域，标记为合格，像素为3
+    NeiborPos = [] #将邻域压进容器
+    NeiborPos.append((-1,0))
+    NeiborPos.append((1, 0))
+    NeiborPos.append((0, -1))
+    NeiborPos.append((0, 1))
+    if NeiborMode ==1:
+        print("Neighbor mode: 8邻域.")
+        NeiborPos.append((-1, -1))
+        NeiborPos.append((-1, 1))
+        NeiborPos.append((1, -1))
+        NeiborPos.append((1, 1))
+    else:
+        print("Neighbor mode: 4邻域.")
+    NeihborCount = 4+4*NeiborMode;
+    CurrX = 0
+    CurrY =0
+    for i in range(sp[0]):
+        for j in range(sp[1]):
+            if PointLabel[i,j] == 0:
+                GrowBuffer = []
+                GrowBuffer.append((j,i));
+                PointLabel[i,j] = 1
+                CheckResult = 0
+                for z in range(len(GrowBuffer)):
+                    for q in range(NeihborCount):
+                        CurrX = GrowBuffer[z][0]+NeiborPos[q][0]
+                        CurrY = GrowBuffer[z][1]+NeiborPos[q][1]
+                        if CurrX>=0 and CurrX<sp[1] and CurrY >=0 and CurrY<sp[0]:
+                            if PointLabel[CurrY,CurrX] == 0:
+                                GrowBuffer.append((CurrX,CurrY))
+                                PointLabel[CurrY,CurrX] = 1
+
+
 if __name__ == '__main__':
     i = 1
-    img = cv2.imread("img/14.jpg",1)
+    img = cv2.imread("img/5.jpg",1)
 
     processImg(img)
     cv2.waitKey(0)
