@@ -189,6 +189,8 @@ def skeletonComplete(imgResult,imgSKIN):
     imgSKIN = cv2.dilate(imgSKIN, kernel)
     ret,new_skin = cv2.threshold(imgSKIN,100,255,cv2.THRESH_BINARY_INV)
     cv2.imshow("process_skin",new_skin)
+    test = RemoveSmallRegion(new_skin,100,1,1)
+    cv2.imshow("test",test)
     #binary, contours, hierarchy = cv2.findContours(new_skin, cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE)
     #cv2.drawContours(binary, contours, -1, (0, 0, 255), 3)
     #cv2.imshow("inver",binary)
@@ -225,10 +227,12 @@ def processImg(img):
     return result
 
 def RemoveSmallRegion(src,AreaLimit,CheckMode,NeiborMode):
-    RemoveCount = 0;
+    RemoveCount = 0
+    mycount = 0
     # 新建一幅标签图像初始化为0像素点，为了记录每个像素点检验状态的标签，0代表未检查，1代表正在检查, 2代表检查不合格（需要反转颜色），3代表检查合格或不需检查
     # 初始化的图像全部为0，未检查
     PointLabel = np.zeros(src.shape,np.uint8)
+    dst = np.zeros(src.shape, np.uint8)
     sp = src.shape
     if(CheckMode == 1):#去除小连通区域的白色点,除去白色的
         print("去除小连通域")
@@ -265,7 +269,8 @@ def RemoveSmallRegion(src,AreaLimit,CheckMode,NeiborMode):
                 GrowBuffer.append((i,j))
                 PointLabel[i,j] = 1
                 CheckResult = 0
-                for z in range(len(GrowBuffer)):
+                z=0
+                while z<len(GrowBuffer):
                     for q in range(NeihborCount):
                         CurrX = GrowBuffer[z][0]+NeiborPos[q][0]
                         CurrY = GrowBuffer[z][1]+NeiborPos[q][1]
@@ -273,6 +278,30 @@ def RemoveSmallRegion(src,AreaLimit,CheckMode,NeiborMode):
                             if PointLabel[CurrX,CurrY] == 0:
                                 GrowBuffer.append((CurrX,CurrY))
                                 PointLabel[CurrX,CurrY] = 1
+                    z += 1
+                #对整个连通域检查完
+                print(len(GrowBuffer))
+                if len(GrowBuffer)>AreaLimit:
+                    CheckResult = 2
+                    mycount += 1
+                else:
+                    CheckResult = 1
+                    RemoveCount +=1
+
+                for z in range(len(GrowBuffer)):
+                    CurrX = GrowBuffer[z][0]
+                    CurrY = GrowBuffer[z][1]
+                    PointLabel[CurrX,CurrY] += CheckResult
+    CheckMode = 255*(1-CheckMode)
+    for i in range(sp[0]):
+        for j in range(sp[1]):
+            if PointLabel[i,j] == 2:
+                dst[i,j] = CheckMode
+            if PointLabel[i,j] == 3:
+                dst[i,j] = src[i,j]
+    print(mycount)
+    return dst
+
 
 
 if __name__ == '__main__':
