@@ -1,3 +1,4 @@
+# encoding:utf-8
 import cv2
 import numpy as np
 def detectFaces(srcImg):
@@ -47,7 +48,7 @@ def detectEyes(srcImg):
         if flag == 1:
             result[j].append(temp)
             cv2.rectangle(src, (temp[0], temp[1]), (temp[0] + temp[2], temp[1] + temp[3]), (0, 255, 0), 2)
-    cv2.imshow("eye",src)
+    #cv2.imshow("eye",src)
     return faces,result
 
 def skinDetect(srcImg):
@@ -144,7 +145,7 @@ def skinModel(srcImg):
                 imgSkin[r,c] = 255
 
                 # display original image and skin image
-    cv2.imshow("imgSkin",imgSkin)
+    cv2.imshow("skin",imgSkin)
     return imgSkin
 
 def removeBackground(srcImg):
@@ -166,7 +167,7 @@ def tailorImg(img,faces):
             new_w = w +int(2/3*w) if new_x+w+int(2/3*w)<img.shape[1] else img.shape[1]-new_x
             new_h = h +int(2/3*h) if new_y+h +int(2/3*h)<img.shape[0] else img.shape[0]-new_y
             new_img = img[new_y:new_y+new_h,new_x:new_x+new_w]
-            cv2.imshow("new_img",new_img)
+            #cv2.imshow("new_img",new_img)
             return new_img
 
 def meanBrightness(imgSKIN,imgGRAY):
@@ -187,32 +188,43 @@ def skeletonComplete(imgResult,imgSKIN):
     imgSKIN = cv2.GaussianBlur(imgSKIN, (7, 7), 0)  # 高斯平滑处理原图像降噪
     imgSKIN = cv2.dilate(imgSKIN, kernel)
     ret,new_skin = cv2.threshold(imgSKIN,100,255,cv2.THRESH_BINARY_INV)
-    cv2.imshow("inver",new_skin)
+    cv2.imshow("process_skin",new_skin)
+    #binary, contours, hierarchy = cv2.findContours(new_skin, cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE)
+    #cv2.drawContours(binary, contours, -1, (0, 0, 255), 3)
+    #cv2.imshow("inver",binary)
     img = cv2.GaussianBlur(new_skin, (3, 3), 0)  # 高斯平滑处理原图像降噪
     canny = cv2.Canny(img, 50, 150)  # apertureSize默认为3
     ret,skeleton = cv2.threshold(canny,100,255,cv2.THRESH_BINARY_INV)
     kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))
     skeleton = cv2.erode(skeleton, kernel)
+    skeleton = cv2.erode(skeleton, kernel)
     result = cv2.bitwise_and(skeleton,imgResult)
-    cv2.imshow("result", result)
+    cv2.imshow("result",result)
+    return result
 
-if __name__ == '__main__':
-    img = cv2.imread("img/11.jpg",1)
+def processImg(img):
     img = cv2.resize(img,(int(img.shape[1]/2) ,int(img.shape[0]/2)),interpolation=cv2.INTER_CUBIC)
     cv2.imshow("img",img)
     imgFront = removeBackground(img)
-    imgSkin = skinModel(img)
+    #眼睛和人脸检测
     faces,eyes = detectEyes(img)
     imgGray = cv2.cvtColor(img,cv2.COLOR_BGR2GRAY)
-
     #获取到的人物头像前景图
     imgFace = tailorImg(imgFront,faces)
     #获取imgFace的肤色图
     imgFace_Skin = skinModel(imgFace)
     imgFace_Gray = cv2.cvtColor(imgFace,cv2.COLOR_BGR2GRAY)
+    #获取到作阈值化的阈值
     theta = meanBrightness(imgSKIN=imgFace_Skin,imgGRAY=imgFace_Gray)
-    print(theta)
+    #进行阈值化
     ret,imgFace_thresh = cv2.threshold(imgFace_Gray,0.7*int(theta),255,cv2.THRESH_BINARY)
-    cv2.imshow("imgFace_thresh",imgFace_thresh)
-    skeletonComplete(imgFace_thresh,imgSKIN=imgFace_Skin)
+    cv2.imshow("face_threshold",imgFace_thresh)
+    #轮廓补充
+    result = skeletonComplete(imgFace_thresh,imgSKIN=imgFace_Skin)
+    return result
+if __name__ == '__main__':
+    i = 1
+    img = cv2.imread("img/14.jpg",1)
+
+    processImg(img)
     cv2.waitKey(0)
