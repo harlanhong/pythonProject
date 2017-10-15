@@ -188,9 +188,9 @@ def skeletonComplete(imgResult,imgSKIN):
     imgSKIN = cv2.GaussianBlur(imgSKIN, (7, 7), 0)  # 高斯平滑处理原图像降噪
     imgSKIN = cv2.dilate(imgSKIN, kernel)
     ret,new_skin = cv2.threshold(imgSKIN,100,255,cv2.THRESH_BINARY_INV)
+    new_skin = RemoveSmallRegion(new_skin,200,1,1)
+    new_skin = RemoveSmallRegion(new_skin,200,0,1)
     cv2.imshow("process_skin",new_skin)
-    test = RemoveSmallRegion(new_skin,100,1,1)
-    cv2.imshow("test",test)
     #binary, contours, hierarchy = cv2.findContours(new_skin, cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE)
     #cv2.drawContours(binary, contours, -1, (0, 0, 255), 3)
     #cv2.imshow("inver",binary)
@@ -228,7 +228,6 @@ def processImg(img):
 
 def RemoveSmallRegion(src,AreaLimit,CheckMode,NeiborMode):
     RemoveCount = 0
-    mycount = 0
     # 新建一幅标签图像初始化为0像素点，为了记录每个像素点检验状态的标签，0代表未检查，1代表正在检查, 2代表检查不合格（需要反转颜色），3代表检查合格或不需检查
     # 初始化的图像全部为0，未检查
     PointLabel = np.zeros(src.shape,np.uint8)
@@ -269,6 +268,7 @@ def RemoveSmallRegion(src,AreaLimit,CheckMode,NeiborMode):
                 GrowBuffer.append((i,j))
                 PointLabel[i,j] = 1
                 CheckResult = 0
+                #在这里说一下，python的for循环有点奇葩，就是范围是静态的，第一次获取到范围值后就不会改变了
                 z=0
                 while z<len(GrowBuffer):
                     for q in range(NeihborCount):
@@ -280,10 +280,8 @@ def RemoveSmallRegion(src,AreaLimit,CheckMode,NeiborMode):
                                 PointLabel[CurrX,CurrY] = 1
                     z += 1
                 #对整个连通域检查完
-                print(len(GrowBuffer))
                 if len(GrowBuffer)>AreaLimit:
                     CheckResult = 2
-                    mycount += 1
                 else:
                     CheckResult = 1
                     RemoveCount +=1
@@ -299,14 +297,14 @@ def RemoveSmallRegion(src,AreaLimit,CheckMode,NeiborMode):
                 dst[i,j] = CheckMode
             if PointLabel[i,j] == 3:
                 dst[i,j] = src[i,j]
-    print(mycount)
+
     return dst
 
 
 
 if __name__ == '__main__':
     i = 1
-    img = cv2.imread("img/5.jpg",1)
+    img = cv2.imread("img/9.jpg",1)
 
     processImg(img)
     cv2.waitKey(0)
