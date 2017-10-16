@@ -198,6 +198,9 @@ def skeletonComplete(imgResult,imgSKIN):
     kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))
     new_skin = imgSKIN
     new_skin = RemoveSmallRegion(new_skin,500,0,1)
+    cv2.imshow("new_skinHAHA",new_skin)
+    new_skin = delete_jut(new_skin,6,6,0)
+    new_skin = delete_jut(new_skin,6,6,0)
     cv2.imshow("new_skin",new_skin)
     #binary, contours, hierarchy = cv2.findContours(new_skin, cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE)
     #cv2.drawContours(binary, contours, -1, (0, 0, 255), 3)
@@ -211,6 +214,44 @@ def skeletonComplete(imgResult,imgSKIN):
     result = cv2.bitwise_and(skeleton,imgResult)
     cv2.imshow("result",result)
     return result
+#去除二值图像边缘的突出部
+def delete_jut(src,uthreshold,vthreshold,type):
+    threshold = 0
+    dst = src.copy()
+    sp = src.shape
+    height = sp[0]
+    width = sp[1]
+    k = 0
+    mode = (1-type)*255
+    modeInver = 255-mode
+    for i in range(height-1):
+        for j in range(width-1):
+            #行消除
+            if dst[i,j]== mode and dst[i,j+1] == modeInver:
+                if j+uthreshold >= width:
+                    for k in range(j+1,width):
+                        dst[i,k] = mode
+                else:
+                    for k in range(j+2,j+uthreshold+1):
+                        if dst[i,k] == mode:
+                            break
+                    if dst[i,k]  == mode:
+                        for h in range(j+1,k):
+                            dst[i,h] = mode
+            #列消除
+            if dst[i,j] == mode and dst[i+1,j] == modeInver:
+                if i+vthreshold >= height:
+                    for k in range(i+1,height):
+                        dst[k,j] = mode
+                else:
+                    for k in range(i+2,i+vthreshold+1):
+                        if dst[k,j] == mode:
+                            break
+                        if dst[k,j] == mode:
+                            print("==================")
+                            for h in range(i+1,k):
+                                dst[h,j] = mode
+    return dst
 #对图片进行处理
 def processImg(img):
     img = cv2.resize(img,(int(img.shape[1]/2) ,int(img.shape[0]/2)),interpolation=cv2.INTER_CUBIC)
