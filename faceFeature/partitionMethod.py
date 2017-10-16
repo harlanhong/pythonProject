@@ -140,7 +140,7 @@ def skinModel(srcImg):
                 Cb = (Cb - CbCenter) * Wcb / WCb + 108
                 ########################################################################
             # skin color detection
-            if Cb >= 79 and Cb <= 124 and Cr >= 143 and Cr <= 170:
+            if Cb >= 79 and Cb <= 124 and Cr >= 137 and Cr <= 170:
                 skin = 1
                 # print 'Skin detected!'
             if 0 == skin:
@@ -253,41 +253,6 @@ def delete_jut(src,uthreshold,vthreshold,type):
                                 dst[h,j] = mode
     return dst
 #对图片进行处理
-def processImg(img):
-    img = cv2.resize(img,(int(img.shape[1]/2) ,int(img.shape[0]/2)),interpolation=cv2.INTER_CUBIC)
-    cv2.imshow("img",img)
-    imgFront = removeBackground(img)
-    #眼睛和人脸检测
-    faces,eyes = detectEyes(img)
-    temp = img.copy()
-    mask = np.zeros((img.shape[0] + 2, img.shape[1] + 2), np.uint8)
-
-    imgGray = cv2.cvtColor(img,cv2.COLOR_BGR2GRAY)
-    #获取到的人物头像前景图
-    imgFace = tailorImg(imgFront,faces)
-    #获取imgFace的肤色图
-    imgFace_Skin = skinModel(imgFace)
-    ####################################################
-    kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))
-    skinTemp = cv2.erode(imgFace_Skin, kernel)
-    skinTemp = cv2.dilate(skinTemp, kernel)
-    #harlan
-    imgFace_Skin = RemoveSmallRegion(skinTemp, 2000, 1, 1)
-    cv2.imshow("skinTemp", imgFace_Skin)
-
-
-
-    imgFace_Gray = cv2.cvtColor(imgFace,cv2.COLOR_BGR2GRAY)
-    #获取到作阈值化的阈值
-    #theta = meanBrightness(imgSKIN=imgFace_Skin,imgGRAY=imgFace_Gray)
-    #进行阈值化
-    cv2.imshow("imgFace_gray",imgFace_Gray)
-    imgFace_thresh,newSkin = divisionThreshold(imgSKIN=imgFace_Skin,imgFace=imgFace_Gray)
-    #ret,imgFace_thresh = cv2.threshold(imgFace_Gray,0.7*int(theta),255,cv2.THRESH_BINARY)
-    cv2.imshow("face_threshold",imgFace_thresh)
-    #轮廓补充
-    result = skeletonComplete(imgFace_thresh,imgSKIN=newSkin)
-    return result
 
 def RemoveSmallRegion(src,AreaLimit,CheckMode,NeiborMode):
     RemoveCount = 0
@@ -482,10 +447,46 @@ def divisionThreshold(imgSKIN,imgFace):
 
 def unitTest():
     img = cv2.imread("img/14.jpg",1)
+    img = cv2.medianBlur(img,3)
     dst = processImg(img)
     #dst = RemoveSelectRegion(dst,1000,30,1,1)
     cv2.imshow("result",dst)
 
+def processImg(img):
+    img = cv2.resize(img,(int(img.shape[1]/2) ,int(img.shape[0]/2)),interpolation=cv2.INTER_CUBIC)
+    cv2.imshow("img",img)
+    imgFront = removeBackground(img)
+    #眼睛和人脸检测
+    faces,eyes = detectEyes(img)
+    temp = img.copy()
+    mask = np.zeros((img.shape[0] + 2, img.shape[1] + 2), np.uint8)
+
+    imgGray = cv2.cvtColor(img,cv2.COLOR_BGR2GRAY)
+    #获取到的人物头像前景图
+    imgFace = tailorImg(imgFront,faces)
+    #获取imgFace的肤色图
+    imgFace_Skin = skinModel(imgFace)
+    ####################################################
+    kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))
+    skinTemp = cv2.erode(imgFace_Skin, kernel)
+    skinTemp = cv2.dilate(skinTemp, kernel)
+    #harlan
+    imgFace_Skin = RemoveSmallRegion(skinTemp, 2000, 1, 1)
+    cv2.imshow("skinTemp", imgFace_Skin)
+
+
+
+    imgFace_Gray = cv2.cvtColor(imgFace,cv2.COLOR_BGR2GRAY)
+    #获取到作阈值化的阈值
+    #theta = meanBrightness(imgSKIN=imgFace_Skin,imgGRAY=imgFace_Gray)
+    #进行阈值化
+    cv2.imshow("imgFace_gray",imgFace_Gray)
+    imgFace_thresh,newSkin = divisionThreshold(imgSKIN=imgFace_Skin,imgFace=imgFace_Gray)
+    #ret,imgFace_thresh = cv2.threshold(imgFace_Gray,0.7*int(theta),255,cv2.THRESH_BINARY)
+    cv2.imshow("face_threshold",imgFace_thresh)
+    #轮廓补充
+    result = skeletonComplete(imgFace_thresh,imgSKIN=newSkin)
+    return result
 def createResult():
     i = 1
     while i < 16:
