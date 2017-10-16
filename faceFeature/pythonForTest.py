@@ -1,10 +1,14 @@
 import cv2
+import math
+
+img = cv2.imread("img/1.jpg",1)
 
 
-temp = []
-temp.append((1,2))
-temp.append((3,4))
-print(temp[0])
-temp.remove((1,2))
-print(temp)
+sp = img.shape
+print(sp)
+ycrcb = cv2.cvtColor(img,cv2.COLOR_BGR2YCrCb)
+print(img[0,0],ycrcb[0,0])
+print(img[0,0,0],ycrcb[0,0,0])
+
+
 cv2.waitKey(0)

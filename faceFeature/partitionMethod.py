@@ -1,6 +1,8 @@
 # encoding:utf-8
 import cv2
 import numpy as np
+import math
+#检测人脸
 def detectFaces(srcImg):
     img = srcImg.copy()
     #print 1
@@ -11,7 +13,7 @@ def detectFaces(srcImg):
         gray = img
     faces = face_cascade.detectMultiScale(gray, 1.3, 5)#1.3and5  counts to the result of face recognation
     return faces
-
+#在人脸的基础上检测眼睛
 def detectEyes(srcImg):
     src = srcImg.copy()
     faces = detectFaces(src)
@@ -50,22 +52,24 @@ def detectEyes(srcImg):
             cv2.rectangle(src, (temp[0], temp[1]), (temp[0] + temp[2], temp[1] + temp[3]), (0, 255, 0), 2)
     #cv2.imshow("eye",src)
     return faces,result
-
+#皮肤检测。。。。。实践不行
 def skinDetect(srcImg):
     img = srcImg.copy()
     img = cv2.cvtColor(img,cv2.COLOR_BGR2YCrCb)
     Y, Cr, Cb = cv2.split(img)
-    result = np.zeros(img.shape, np.uint8)
     sp = img.shape
+    result = np.zeros((sp[0],sp[1]), np.uint8)
     #cr 77:127 cb 133:173
     for i in range(sp[0]):
         for j in range(sp[1]):
-            if Cr[i,j]>=77 and Cr[i,j]<=127 and Cb[i,j]>=133 and Cb[i,j]<=173:
+            if img[i,j,1]>=77 and img[i,j,1]<=127 and img[i,j,2] >= 133 and img[i,j,2] <= 173:
                 result[i,j] = 255;
             else:
                 result[i,j] = 0;
-    return result
 
+    cv2.imshow("skin",result)
+    return result
+#肤色检测
 def skinModel(srcImg):
     img = srcImg.copy()
     rows, cols, channels = img.shape
@@ -136,7 +140,7 @@ def skinModel(srcImg):
                 Cb = (Cb - CbCenter) * Wcb / WCb + 108
                 ########################################################################
             # skin color detection
-            if Cb > 77 and Cb < 127 and Cr > 133 and Cr < 173:
+            if Cb >= 79 and Cb <= 124 and Cr >= 138 and Cr <= 170:
                 skin = 1
                 # print 'Skin detected!'
             if 0 == skin:
@@ -145,19 +149,24 @@ def skinModel(srcImg):
                 imgSkin[r,c] = 255
 
                 # display original image and skin image
+    kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))
+    imgSkin = cv2.dilate(imgSkin, kernel)
+    imgSkin = cv2.erode(imgSkin,kernel)
+    imgSkin = cv2.dilate(imgSkin,kernel)
+    imgSkin = cv2.erode(imgSkin,kernel)
     cv2.imshow("skin",imgSkin)
     return imgSkin
-
+#通过漫水填充去除背景
 def removeBackground(srcImg):
     img = srcImg.copy()
     sp = img.shape
     mask = np.zeros((img.shape[0]+2,img.shape[1]+2),np.uint8)
-    cv2.floodFill(img, mask, (5, 5), (255, 255, 255), (5, 5, 5), (5, 5, 5), 8)
+    cv2.floodFill(img, mask, (5, 5), (255, 255, 255), (3, 3, 3), (3, 3, 3), 8)
     #mask = np.zeros((img.shape[0]+2,img.shape[1]+2),np.uint8)
     #cv2.floodFill(img, mask, (5,img.shape[0]-5), (255, 255, 255), (3, 3, 3), (3, 3, 3), 8)
     cv2.imshow("floodfill", img)
     return img
-
+#通过人脸检测裁剪人脸
 def tailorImg(img,faces):
     if len(faces) == 1:
         for i,(x,y,w,h) in enumerate(faces):
@@ -169,7 +178,7 @@ def tailorImg(img,faces):
             new_img = img[new_y:new_y+new_h,new_x:new_x+new_w]
             #cv2.imshow("new_img",new_img)
             return new_img
-
+#计算肤色部分的平均亮度
 def meanBrightness(imgSKIN,imgGRAY):
     sp = imgSKIN.shape
     print(sp)
@@ -180,17 +189,16 @@ def meanBrightness(imgSKIN,imgGRAY):
            if imgSKIN[i,j] >100:
                brightness += imgGRAY[i,j]
                count +=1
-    return brightness/count
-
+    if count !=0:
+        return brightness/count
+    else:
+        return 0
+#轮廓完善
 def skeletonComplete(imgResult,imgSKIN):
     kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))
-    imgSKIN = cv2.erode(imgSKIN, kernel)
-    imgSKIN = cv2.GaussianBlur(imgSKIN, (7, 7), 0)  # 高斯平滑处理原图像降噪
-    imgSKIN = cv2.dilate(imgSKIN, kernel)
-    ret,new_skin = cv2.threshold(imgSKIN,100,255,cv2.THRESH_BINARY_INV)
-    new_skin = RemoveSmallRegion(new_skin,200,1,1)
-    new_skin = RemoveSmallRegion(new_skin,200,0,1)
-    cv2.imshow("process_skin",new_skin)
+    new_skin = imgSKIN
+    new_skin = RemoveSmallRegion(new_skin,500,0,1)
+    cv2.imshow("new_skin",new_skin)
     #binary, contours, hierarchy = cv2.findContours(new_skin, cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE)
     #cv2.drawContours(binary, contours, -1, (0, 0, 255), 3)
     #cv2.imshow("inver",binary)
@@ -199,31 +207,45 @@ def skeletonComplete(imgResult,imgSKIN):
     ret,skeleton = cv2.threshold(canny,100,255,cv2.THRESH_BINARY_INV)
     kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))
     skeleton = cv2.erode(skeleton, kernel)
-    skeleton = cv2.erode(skeleton, kernel)
+    #skeleton = cv2.erode(skeleton, kernel)
     result = cv2.bitwise_and(skeleton,imgResult)
     cv2.imshow("result",result)
     return result
-
+#对图片进行处理
 def processImg(img):
     img = cv2.resize(img,(int(img.shape[1]/2) ,int(img.shape[0]/2)),interpolation=cv2.INTER_CUBIC)
     cv2.imshow("img",img)
     imgFront = removeBackground(img)
     #眼睛和人脸检测
     faces,eyes = detectEyes(img)
+    temp = img.copy()
+    mask = np.zeros((img.shape[0] + 2, img.shape[1] + 2), np.uint8)
+
     imgGray = cv2.cvtColor(img,cv2.COLOR_BGR2GRAY)
     #获取到的人物头像前景图
     imgFace = tailorImg(imgFront,faces)
     #获取imgFace的肤色图
     imgFace_Skin = skinModel(imgFace)
+    ####################################################
+    kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))
+    skinTemp = cv2.erode(imgFace_Skin, kernel)
+    skinTemp = cv2.dilate(skinTemp, kernel)
+    #harlan
+    imgFace_Skin = RemoveSmallRegion(skinTemp, 2000, 1, 1)
+    cv2.imshow("skinTemp", imgFace_Skin)
+
+
+
     imgFace_Gray = cv2.cvtColor(imgFace,cv2.COLOR_BGR2GRAY)
     #获取到作阈值化的阈值
-    theta = meanBrightness(imgSKIN=imgFace_Skin,imgGRAY=imgFace_Gray)
+    #theta = meanBrightness(imgSKIN=imgFace_Skin,imgGRAY=imgFace_Gray)
     #进行阈值化
     cv2.imshow("imgFace_gray",imgFace_Gray)
-    ret,imgFace_thresh = cv2.threshold(imgFace_Gray,0.7*int(theta),255,cv2.THRESH_BINARY)
+    imgFace_thresh,newSkin = divisionThreshold(imgSKIN=imgFace_Skin,imgFace=imgFace_Gray)
+    #ret,imgFace_thresh = cv2.threshold(imgFace_Gray,0.7*int(theta),255,cv2.THRESH_BINARY)
     cv2.imshow("face_threshold",imgFace_thresh)
     #轮廓补充
-    result = skeletonComplete(imgFace_thresh,imgSKIN=imgFace_Skin)
+    result = skeletonComplete(imgFace_thresh,imgSKIN=newSkin)
     return result
 
 def RemoveSmallRegion(src,AreaLimit,CheckMode,NeiborMode):
@@ -300,11 +322,138 @@ def RemoveSmallRegion(src,AreaLimit,CheckMode,NeiborMode):
 
     return dst
 
+def RemoveSelectRegion(src,AreaHigh,AreaLow,CheckMode,NeiborMode):
+    RemoveCount = 0
+    # 新建一幅标签图像初始化为0像素点，为了记录每个像素点检验状态的标签，0代表未检查，1代表正在检查, 2代表检查不合格（需要反转颜色），3代表检查合格或不需检查
+    # 初始化的图像全部为0，未检查
+    PointLabel = np.zeros(src.shape,np.uint8)
+    dst = np.zeros(src.shape, np.uint8)
+    sp = src.shape
+    if(CheckMode == 1):#去除小连通区域的白色点,除去白色的
+        print("去除小连通域")
+        for i in range(sp[0]):
+            for j in range(sp[1]):
+                if src[i,j]<10:
+                    PointLabel[i,j] = 3#将背景黑色点标记为合格，像素为3
+    else: #除去黑色的
+        print("去除孔洞")
+        for i in range(sp[0]):
+            for j in range(sp[1]):
+                if src[i,j]>10:
+                    PointLabel[i,j] = 3#如果原图是白色区域，标记为合格，像素为3
+    NeiborPos = [] #将邻域压进容器
+    NeiborPos.append((-1,0))
+    NeiborPos.append((1, 0))
+    NeiborPos.append((0, -1))
+    NeiborPos.append((0, 1))
+    if NeiborMode ==1:
+        print("Neighbor mode: 8邻域.")
+        NeiborPos.append((-1, -1))
+        NeiborPos.append((-1, 1))
+        NeiborPos.append((1, -1))
+        NeiborPos.append((1, 1))
+    else:
+        print("Neighbor mode: 4邻域.")
+    NeihborCount = 4+4*NeiborMode;
+    CurrX = 0
+    CurrY =0
+    for i in range(sp[0]):
+        for j in range(sp[1]):
+            if PointLabel[i,j] == 0:
+                GrowBuffer = []
+                GrowBuffer.append((i,j))
+                PointLabel[i,j] = 1
+                CheckResult = 0
+                #在这里说一下，python的for循环有点奇葩，就是范围是静态的，第一次获取到范围值后就不会改变了
+                z=0
+                while z<len(GrowBuffer):
+                    for q in range(NeihborCount):
+                        CurrX = GrowBuffer[z][0]+NeiborPos[q][0]
+                        CurrY = GrowBuffer[z][1]+NeiborPos[q][1]
+                        if CurrX >=0 and CurrX < sp[0] and CurrY >=0 and CurrY<sp[1]:
+                            if PointLabel[CurrX,CurrY] == 0:
+                                GrowBuffer.append((CurrX,CurrY))
+                                PointLabel[CurrX,CurrY] = 1
+                    z += 1
+                #对整个连通域检查完
+                if len(GrowBuffer)> AreaHigh or len(GrowBuffer) < AreaLow:
+                    CheckResult = 2
+                else:
+                    CheckResult = 1
+                    RemoveCount +=1
+
+                for z in range(len(GrowBuffer)):
+                    CurrX = GrowBuffer[z][0]
+                    CurrY = GrowBuffer[z][1]
+                    PointLabel[CurrX,CurrY] += CheckResult
+    CheckMode = 255*(1-CheckMode)
+    for i in range(sp[0]):
+        for j in range(sp[1]):
+            if PointLabel[i,j] == 2:
+                dst[i,j] = CheckMode
+            if PointLabel[i,j] == 3:
+                dst[i,j] = src[i,j]
+
+    return dst
+
+def myThreshold(imgGray,imgSkin,thresh):
+    sp =  imgGray.shape
+    dst = imgGray.copy()
+    for i in range(sp[0]):
+        for j in range(sp[1]):
+            if imgSkin[i,j] >100:
+                if imgGray[i,j]>thresh:
+                    dst[i,j] = 255
+                else:
+                    dst[i,j] = 0
+    return dst
 
 
-if __name__ == '__main__':
+def divisionThreshold(imgSKIN,imgFace):
+    theta = meanBrightness(imgSKIN=imgSKIN, imgGRAY=imgFace)
+    divisionCount = 3
+    #初始化数组大小
+    imgSegment = [None] * divisionCount
+    imgSkinSegment = [None] * divisionCount
+    for i in range(len(imgSegment)):
+        imgSegment[i] = [0] * divisionCount
+        imgSkinSegment[i] = [0] * divisionCount
+    sp = imgSKIN.shape
+    new_w = math.floor(sp[1]/divisionCount)
+    new_h = math.floor(sp[0]/divisionCount)
+    dst = imgSKIN.copy()
+    dst = dst[0:new_h*divisionCount,0:new_w*divisionCount]
+    newSkin = imgSKIN[0:new_h*divisionCount,0:new_w*divisionCount]
+    for i in range(divisionCount):
+        for j in range(divisionCount):
+            imgSegment[i][j] = imgFace[i*new_h:(i+1)*new_h,j*new_w:(j+1)*new_w]
+            imgSkinSegment[i][j] = imgSKIN[i*new_h:(i+1)*new_h,j*new_w:(j+1)*new_w]
+            alpha = meanBrightness(imgSKIN=imgSkinSegment[i][j],imgGRAY=imgSegment[i][j])
+
+            if alpha !=0:
+                thresh = min(alpha,theta)
+                imgSegment[i][j] = myThreshold(imgSegment[i][j],imgSkinSegment[i][j],0.65*thresh)
+    for i in range(divisionCount):
+        for j in range(divisionCount):
+            dst[i*new_h:(i+1)*new_h,j*new_w:(j+1)*new_w]=imgSegment[i][j]
+    ret,dst = cv2.threshold(dst,100,255,cv2.THRESH_BINARY)
+    return dst,newSkin
+
+def unitTest():
+    img = cv2.imread("img/13.jpg",1)
+    dst = processImg(img)
+    #dst = RemoveSelectRegion(dst,1000,30,1,1)
+    cv2.imshow("result",dst)
+
+def createResult():
     i = 1
-    img = cv2.imread("img/9.jpg",1)
-
-    processImg(img)
+    while i < 16:
+        img = cv2.imread("img/" + str(i) + ".jpg", 1)
+        dst = processImg(img)
+        dst = RemoveSmallRegion(dst, 10, 1, 1)
+        cv2.imwrite("result/" + str(i) + ".jpg", dst)
+        i = i + 1
+if __name__ == '__main__':
+    unitTest()
     cv2.waitKey(0)
+
