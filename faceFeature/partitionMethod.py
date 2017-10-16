@@ -140,7 +140,7 @@ def skinModel(srcImg):
                 Cb = (Cb - CbCenter) * Wcb / WCb + 108
                 ########################################################################
             # skin color detection
-            if Cb >= 79 and Cb <= 124 and Cr >= 138 and Cr <= 170:
+            if Cb >= 79 and Cb <= 124 and Cr >= 143 and Cr <= 170:
                 skin = 1
                 # print 'Skin detected!'
             if 0 == skin:
@@ -481,7 +481,7 @@ def divisionThreshold(imgSKIN,imgFace):
     return dst,newSkin
 
 def unitTest():
-    img = cv2.imread("img/13.jpg",1)
+    img = cv2.imread("img/14.jpg",1)
     dst = processImg(img)
     #dst = RemoveSelectRegion(dst,1000,30,1,1)
     cv2.imshow("result",dst)
