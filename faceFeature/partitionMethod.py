@@ -53,21 +53,21 @@ def detectEyes(srcImg):
     #cv2.imshow("eye",src)
     return faces,result
 #皮肤检测。。。。。实践不行
-def skinDetect(srcImg):
+def skinEllipse(srcImg):
     img = srcImg.copy()
-    img = cv2.cvtColor(img,cv2.COLOR_BGR2YCrCb)
-    Y, Cr, Cb = cv2.split(img)
     sp = img.shape
-    result = np.zeros((sp[0],sp[1]), np.uint8)
-    #cr 77:127 cb 133:173
+    model = np.zeros((256,256),np.uint8)
+    result = np.zeros((sp[0],sp[1]),np.uint8)
+    cv2.ellipse(model, (113, 155), (25, 17), 43, 0, 360, 255,-1)
+    imgYcrcb = cv2.cvtColor(img,cv2.COLOR_BGR2YCrCb)
     for i in range(sp[0]):
         for j in range(sp[1]):
-            if img[i,j,1]>=77 and img[i,j,1]<=127 and img[i,j,2] >= 133 and img[i,j,2] <= 173:
-                result[i,j] = 255;
+            #if model[imgYcrcb[i,j,1],imgYcrcb[i,j,2]] == 255:
+            if imgYcrcb[i,j,1]>30 and imgYcrcb[i,j,1]<115 and imgYcrcb[i,j,2]>90 and imgYcrcb[i,j,2]<240:
+                result[i,j]=255
             else:
-                result[i,j] = 0;
-
-    cv2.imshow("skin",result)
+                result[i,j]=0
+    cv2.imshow("ellipseSkin",result)
     return result
 #肤色检测
 def skinModel(srcImg):
@@ -140,7 +140,8 @@ def skinModel(srcImg):
                 Cb = (Cb - CbCenter) * Wcb / WCb + 108
                 ########################################################################
             # skin color detection
-            if Cb >= 79 and Cb <= 124 and Cr >= 137 and Cr <= 170:
+            #if Cb >= 80 and Cb <= 127 and Cr >= 141 and Cr <= 173:
+            if Cb >= 77 and Cb <= 127 and Cr >= 141 and Cr <= 173:
                 skin = 1
                 # print 'Skin detected!'
             if 0 == skin:
@@ -161,7 +162,7 @@ def removeBackground(srcImg):
     img = srcImg.copy()
     sp = img.shape
     mask = np.zeros((img.shape[0]+2,img.shape[1]+2),np.uint8)
-    cv2.floodFill(img, mask, (5, 5), (255, 255, 255), (3, 3, 3), (3, 3, 3), 8)
+    cv2.floodFill(img, mask, (5, 5), (255, 255, 255), (4.5, 4.5, 4.5), (3.5, 3.5, 3.5), 8)
     #mask = np.zeros((img.shape[0]+2,img.shape[1]+2),np.uint8)
     #cv2.floodFill(img, mask, (5,img.shape[0]-5), (255, 255, 255), (3, 3, 3), (3, 3, 3), 8)
     cv2.imshow("floodfill", img)
@@ -190,17 +191,20 @@ def meanBrightness(imgSKIN,imgGRAY):
                brightness += imgGRAY[i,j]
                count +=1
     if count !=0:
-        return brightness/count
+        return count,brightness/count
     else:
-        return 0
+        return count,0
 #轮廓完善
 def skeletonComplete(imgResult,imgSKIN):
     kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))
     new_skin = imgSKIN
-    new_skin = RemoveSmallRegion(new_skin,500,0,1)
+    new_skin = RemoveSmallRegion(new_skin,3000,0,1)
+    new_skin = RemoveSmallRegion(new_skin,3000,1,1)
     cv2.imshow("new_skinHAHA",new_skin)
-    new_skin = delete_jut(new_skin,6,6,0)
-    new_skin = delete_jut(new_skin,6,6,0)
+    new_skin = delete_jut(new_skin, 10, 10, 0)
+    new_skin = delete_jut(new_skin, 10, 10, 1)
+    new_skin = RemoveSmallRegion(new_skin,2000,0,1)
+    new_skin = RemoveSmallRegion(new_skin,2000,1,1)
     cv2.imshow("new_skin",new_skin)
     #binary, contours, hierarchy = cv2.findContours(new_skin, cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE)
     #cv2.drawContours(binary, contours, -1, (0, 0, 255), 3)
@@ -247,10 +251,9 @@ def delete_jut(src,uthreshold,vthreshold,type):
                     for k in range(i+2,i+vthreshold+1):
                         if dst[k,j] == mode:
                             break
-                        if dst[k,j] == mode:
-                            print("==================")
-                            for h in range(i+1,k):
-                                dst[h,j] = mode
+                    if dst[k,j] == mode:
+                        for h in range(i+1,k):
+                            dst[h,j] = mode
     return dst
 #对图片进行处理
 
@@ -416,7 +419,7 @@ def myThreshold(imgGray,imgSkin,thresh):
 
 
 def divisionThreshold(imgSKIN,imgFace):
-    theta = meanBrightness(imgSKIN=imgSKIN, imgGRAY=imgFace)
+    useless,theta = meanBrightness(imgSKIN=imgSKIN, imgGRAY=imgFace)
     divisionCount = 3
     #初始化数组大小
     imgSegment = [None] * divisionCount
@@ -434,28 +437,24 @@ def divisionThreshold(imgSKIN,imgFace):
         for j in range(divisionCount):
             imgSegment[i][j] = imgFace[i*new_h:(i+1)*new_h,j*new_w:(j+1)*new_w]
             imgSkinSegment[i][j] = imgSKIN[i*new_h:(i+1)*new_h,j*new_w:(j+1)*new_w]
-            alpha = meanBrightness(imgSKIN=imgSkinSegment[i][j],imgGRAY=imgSegment[i][j])
+            skinPoint,alpha = meanBrightness(imgSKIN=imgSkinSegment[i][j],imgGRAY=imgSegment[i][j])
 
             if alpha !=0:
                 thresh = min(alpha,theta)
-                imgSegment[i][j] = myThreshold(imgSegment[i][j],imgSkinSegment[i][j],0.65*thresh)
+                imgSegment[i][j] = myThreshold(imgSegment[i][j],imgSkinSegment[i][j],0.56*thresh)
     for i in range(divisionCount):
         for j in range(divisionCount):
             dst[i*new_h:(i+1)*new_h,j*new_w:(j+1)*new_w]=imgSegment[i][j]
     ret,dst = cv2.threshold(dst,100,255,cv2.THRESH_BINARY)
     return dst,newSkin
 
-def unitTest():
-    img = cv2.imread("img/14.jpg",1)
-    img = cv2.medianBlur(img,3)
-    dst = processImg(img)
-    #dst = RemoveSelectRegion(dst,1000,30,1,1)
-    cv2.imshow("result",dst)
-
 def processImg(img):
+    kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))
     img = cv2.resize(img,(int(img.shape[1]/2) ,int(img.shape[0]/2)),interpolation=cv2.INTER_CUBIC)
     cv2.imshow("img",img)
+    #获取到前景图，但是这里因为外层头发比较稀疏，所以可能会被误识别成肤色，所以用形态学操作把这层头发给去掉
     imgFront = removeBackground(img)
+
     #眼睛和人脸检测
     faces,eyes = detectEyes(img)
     temp = img.copy()
@@ -467,14 +466,14 @@ def processImg(img):
     #获取imgFace的肤色图
     imgFace_Skin = skinModel(imgFace)
     ####################################################
-    kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))
+    #对肤色图进行修剪
     skinTemp = cv2.erode(imgFace_Skin, kernel)
     skinTemp = cv2.dilate(skinTemp, kernel)
     #harlan
     imgFace_Skin = RemoveSmallRegion(skinTemp, 2000, 1, 1)
+    imgFace_Skin = RemoveSelectRegion(skinTemp, 2000,20, 0, 1)
+
     cv2.imshow("skinTemp", imgFace_Skin)
-
-
 
     imgFace_Gray = cv2.cvtColor(imgFace,cv2.COLOR_BGR2GRAY)
     #获取到作阈值化的阈值
@@ -489,12 +488,19 @@ def processImg(img):
     return result
 def createResult():
     i = 1
-    while i < 16:
+    while i <= 22:
         img = cv2.imread("img/" + str(i) + ".jpg", 1)
         dst = processImg(img)
         dst = RemoveSmallRegion(dst, 10, 1, 1)
         cv2.imwrite("result/" + str(i) + ".jpg", dst)
         i = i + 1
+
+def unitTest():
+    img = cv2.imread("img/15.jpg",1)
+    img = cv2.medianBlur(img,3)
+    dst = processImg(img)
+    #dst = RemoveSelectRegion(dst,1000,30,1,1)
+    cv2.imshow("result",dst)
 if __name__ == '__main__':
     unitTest()
     cv2.waitKey(0)
