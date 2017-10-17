@@ -149,7 +149,6 @@ def skinModel(srcImg):
                 imgSkin[r,c] = 0
             else:
                 imgSkin[r,c] = 255
-
                 # display original image and skin image
     cv2.imshow("skin",imgSkin)
     return imgSkin
@@ -492,7 +491,6 @@ def createResult():
         print(i)
         img = cv2.imread("img/" + str(i) + ".jpg", 1)
         dst = processImg(img)
-        dst = RemoveSmallRegion(dst, 10, 1, 1)
         cv2.imwrite("result/" + str(i) + ".jpg", dst)
         i = i + 1
 
