@@ -142,7 +142,7 @@ def skinModel(srcImg):
                 ########################################################################
             # skin color detection
             #if Cb >= 80 and Cb <= 127 and Cr >= 141 and Cr <= 173:
-            if Cb >= 77 and Cb <= 127 and Cr >= 139.5 and Cr <= 175:
+            if Cb >= 77 and Cb <= 127 and Cr >= 140and Cr <= 175:
                 skin = 1
                 # print 'Skin detected!'
             if 0 == skin:
@@ -416,10 +416,9 @@ def myThreshold(imgGray,imgSkin,skinPoint,thresh):
                     dst[i,j] = 0
     return dst
 
-
 def divisionThreshold(imgSKIN,imgFace):
     useless,theta = meanBrightness(imgSKIN=imgSKIN, imgGRAY=imgFace)
-    divisionCount = 9
+    divisionCount = 20
     #初始化数组大小
     imgSegment = [None] * divisionCount
     imgSkinSegment = [None] * divisionCount
@@ -439,8 +438,8 @@ def divisionThreshold(imgSKIN,imgFace):
             skinPoint,alpha = meanBrightness(imgSKIN=imgSkinSegment[i][j],imgGRAY=imgSegment[i][j])
             if alpha !=0:
                 thresh = min(alpha,theta)
-                imgSegment[i][j] = myThreshold(imgSegment[i][j],imgSkinSegment[i][j],skinPoint,0.685*thresh)
-                #imgSegment[i][j] = myThreshold(imgSegment[i][j],imgSkinSegment[i][j],skinPoint,0.685*(0.84*alpha+0.16*theta))
+                #imgSegment[i][j] = myThreshold(imgSegment[i][j],imgSkinSegment[i][j],skinPoint,0.71*thresh)
+                imgSegment[i][j] = myThreshold(imgSegment[i][j],imgSkinSegment[i][j],skinPoint,0.71*(0.855*alpha+0.145*theta))
     for i in range(divisionCount):
         for j in range(divisionCount):
             dst[i*new_h:(i+1)*new_h,j*new_w:(j+1)*new_w]=imgSegment[i][j]
@@ -495,10 +494,12 @@ def createResult():
         i = i + 1
 
 def unitTest():
-    img = cv2.imread("img/17.jpg",1)
+    img = cv2.imread("img/5.jpg",1)
     img = cv2.medianBlur(img,3)
     dst = processImg(img)
-    #dst = RemoveSelectRegion(dst,1000,30,1,1)
+    dst = RemoveSmallRegion(dst,10,0,1)
+    dst = delete_jut(dst,1,1,1)
+    dst = delete_jut(dst,1,1,0)
     cv2.imshow("result",dst)
 if __name__ == '__main__':
     unitTest()
