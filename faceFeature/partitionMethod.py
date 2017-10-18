@@ -418,7 +418,7 @@ def myThreshold(imgGray,imgSkin,skinPoint,thresh):
 
 def divisionThreshold(imgSKIN,imgFace):
     useless,theta = meanBrightness(imgSKIN=imgSKIN, imgGRAY=imgFace)
-    divisionCount = 20
+    divisionCount = 25
     #初始化数组大小
     imgSegment = [None] * divisionCount
     imgSkinSegment = [None] * divisionCount
@@ -437,9 +437,10 @@ def divisionThreshold(imgSKIN,imgFace):
             imgSkinSegment[i][j] = imgSKIN[i*new_h:(i+1)*new_h,j*new_w:(j+1)*new_w]
             skinPoint,alpha = meanBrightness(imgSKIN=imgSkinSegment[i][j],imgGRAY=imgSegment[i][j])
             if alpha !=0:
-                thresh = min(alpha,theta)
-                #imgSegment[i][j] = myThreshold(imgSegment[i][j],imgSkinSegment[i][j],skinPoint,0.71*thresh)
-                imgSegment[i][j] = myThreshold(imgSegment[i][j],imgSkinSegment[i][j],skinPoint,0.71*(0.855*alpha+0.145*theta))
+                min_th = min(alpha,theta)
+                max_th = max(alpha,theta)
+                #imgSegment[i][j] = myThreshold(imgSegment[i][j],imgSkinSegment[i][j],skinPoint,0.71*thresh) gamma = 0.63 lamda = 0.855 bata = 0.145
+                imgSegment[i][j] = myThreshold(imgSegment[i][j],imgSkinSegment[i][j],skinPoint,gamma*(lamda*max_th+bata*min_th))
     for i in range(divisionCount):
         for j in range(divisionCount):
             dst[i*new_h:(i+1)*new_h,j*new_w:(j+1)*new_w]=imgSegment[i][j]
@@ -455,6 +456,9 @@ def processImg(img):
 
     #眼睛和人脸检测
     faces,eyes = detectEyes(img)
+    if len(faces)<1:
+        print("cannot detect the face")
+        exit(0)
     temp = img.copy()
     mask = np.zeros((img.shape[0] + 2, img.shape[1] + 2), np.uint8)
 
@@ -489,19 +493,28 @@ def createResult():
     while i <= 22:
         print(i)
         img = cv2.imread("img/" + str(i) + ".jpg", 1)
+        img = cv2.medianBlur(img, 3)
         dst = processImg(img)
+        dst = cv2.medianBlur(dst, 3)
+        dst = RemoveSmallRegion(dst, 10, 0, 1)
+        dst = delete_jut(dst, 1, 1, 1)
+        dst = delete_jut(dst, 1, 1, 0)
         cv2.imwrite("result/" + str(i) + ".jpg", dst)
         i = i + 1
 
 def unitTest():
-    img = cv2.imread("img/5.jpg",1)
+    img = cv2.imread("img/14.jpg",1)
     img = cv2.medianBlur(img,3)
     dst = processImg(img)
+    dst = cv2.medianBlur(dst,3)
     dst = RemoveSmallRegion(dst,10,0,1)
     dst = delete_jut(dst,1,1,1)
     dst = delete_jut(dst,1,1,0)
     cv2.imshow("result",dst)
 if __name__ == '__main__':
-    unitTest()
+    gamma = 0.652
+    lamda = 0.8250
+    bata = 0.1750
+    createResult()
     cv2.waitKey(0)
 
