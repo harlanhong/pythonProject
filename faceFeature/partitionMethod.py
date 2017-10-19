@@ -416,8 +416,24 @@ def myThreshold(imgGray,imgSkin,skinPoint,thresh):
                     dst[i,j] = 0
     return dst
 
-def divisionThreshold(imgSKIN,imgFace):
+#计算图片中边缘点的个数
+def computeEdgesPoint(img):
+    sp = img.shape
+    point = 0
+    sum =0
+    for i in range(sp[0]):
+        for j in range(sp[1]):
+            if img[i,j]>100:
+                point +=1
+            sum +=1
+    if point > 0:
+        return 3*point/sum
+    else:
+        return point/sum
+#分区结合边缘检测的方法来进行二值化
+def divisionThreshold(imgSKIN,imgFace,imgCanny):
     useless,theta = meanBrightness(imgSKIN=imgSKIN, imgGRAY=imgFace)
+
     print("平均亮度",theta)
     divisionCount = 30
     #初始化数组大小
@@ -441,7 +457,10 @@ def divisionThreshold(imgSKIN,imgFace):
                 min_th = min(alpha,theta)
                 max_th = max(alpha,theta)
                 #imgSegment[i][j] = myThreshold(imgSegment[i][j],imgSkinSegment[i][j],skinPoint,0.71*thresh) gamma = 0.63 lamda = 0.855 bata = 0.145
-                imgSegment[i][j] = myThreshold(imgSegment[i][j],imgSkinSegment[i][j],skinPoint,gamma*(lamda*max_th+bata*min_th))
+                edges = imgCanny[i*new_h:(i+1)*new_h,j*new_w:(j+1)*new_w]
+                #计算在这一小块中边缘点为多少个
+                edgesPointPercent = computeEdgesPoint(edges)
+                imgSegment[i][j] = myThreshold(imgSegment[i][j],imgSkinSegment[i][j],skinPoint,(1+edgesPointPercent)*gamma*(lamda*max_th+bata*min_th))
     for i in range(divisionCount):
         for j in range(divisionCount):
             dst[i*new_h:(i+1)*new_h,j*new_w:(j+1)*new_w]=imgSegment[i][j]
@@ -485,7 +504,8 @@ def processImg(img):
     #theta = meanBrightness(imgSKIN=imgFace_Skin,imgGRAY=imgFace_Gray)
     #进行阈值化
     cv2.imshow("imgFace_gray",imgFace_Gray)
-    imgFace_thresh,newSkin = divisionThreshold(imgSKIN=imgFace_Skin,imgFace=imgFace_Gray)
+    canny = cv2.Canny(imgFace_Gray,40,120)
+    imgFace_thresh,newSkin = divisionThreshold(imgSKIN=imgFace_Skin,imgFace=imgFace_Gray,imgCanny=canny)
     #ret,imgFace_thresh = cv2.threshold(imgFace_Gray,0.7*int(theta),255,cv2.THRESH_BINARY)
     cv2.imshow("face_threshold",imgFace_thresh)
     #轮廓补充
@@ -506,18 +526,18 @@ def createResult():
         i = i + 1
 
 def unitTest():
-    img = cv2.imread("img/15.jpg",1)
+    img = cv2.imread("img/2.jpg",1)
     img = cv2.medianBlur(img,3)
     dst = processImg(img)
     dst = cv2.medianBlur(dst,3)
-    #dst = RemoveSelectRegion(dst,10,0,0,1)
+    dst = RemoveSelectRegion(dst,20,0,0,1)
     dst = delete_jut(dst,1,1,1)
     dst = delete_jut(dst,1,1,0)
     cv2.imshow("result",dst)
 if __name__ == '__main__':
-    gamma = 0.62
+    gamma = 0.5
     lamda = 0.6700
     bata = 0.3300
-    unitTest()
+    createResult()
     cv2.waitKey(0)
 
