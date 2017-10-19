@@ -526,7 +526,7 @@ def createResult():
         i = i + 1
 
 def unitTest():
-    img = cv2.imread("img/2.jpg",1)
+    img = cv2.imread("img/1.jpg",1)
     img = cv2.medianBlur(img,3)
     dst = processImg(img)
     dst = cv2.medianBlur(dst,3)
@@ -538,6 +538,6 @@ if __name__ == '__main__':
     gamma = 0.5
     lamda = 0.6700
     bata = 0.3300
-    createResult()
+    unitTest()
     cv2.waitKey(0)
 
