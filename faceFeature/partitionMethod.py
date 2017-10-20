@@ -426,10 +426,18 @@ def computeEdgesPoint(img):
             if img[i,j]>100:
                 point +=1
             sum +=1
-    if point > 0:
-        return 3*point/sum
+    temp = point/sum
+
+    if temp > 0 and temp<=0.05:
+        return 10*temp
+    elif temp> 0.05 and temp<=0.1:
+        return 6*temp
+    elif temp>0.1 and temp<=0.2:
+        return 3*temp
+    elif temp>0.3 and temp<=0.4:
+        return 1.4*temp
     else:
-        return point/sum
+        return temp
 #分区结合边缘检测的方法来进行二值化
 def divisionThreshold(imgSKIN,imgFace,imgCanny):
     useless,theta = meanBrightness(imgSKIN=imgSKIN, imgGRAY=imgFace)
@@ -505,6 +513,7 @@ def processImg(img):
     #进行阈值化
     cv2.imshow("imgFace_gray",imgFace_Gray)
     canny = cv2.Canny(imgFace_Gray,40,120)
+    cv2.imshow("canny",canny)
     imgFace_thresh,newSkin = divisionThreshold(imgSKIN=imgFace_Skin,imgFace=imgFace_Gray,imgCanny=canny)
     #ret,imgFace_thresh = cv2.threshold(imgFace_Gray,0.7*int(theta),255,cv2.THRESH_BINARY)
     cv2.imshow("face_threshold",imgFace_thresh)
@@ -519,14 +528,14 @@ def createResult():
         img = cv2.medianBlur(img, 3)
         dst = processImg(img)
         dst = cv2.medianBlur(dst, 3)
-        dst = RemoveSmallRegion(dst, 10, 0, 1)
+        dst = RemoveSelectRegion(dst, 20, 0, 0, 1)
         dst = delete_jut(dst, 1, 1, 1)
         dst = delete_jut(dst, 1, 1, 0)
         cv2.imwrite("result/" + str(i) + ".jpg", dst)
         i = i + 1
 
 def unitTest():
-    img = cv2.imread("img/1.jpg",1)
+    img = cv2.imread("img/19.jpg",1)
     img = cv2.medianBlur(img,3)
     dst = processImg(img)
     dst = cv2.medianBlur(dst,3)
@@ -535,9 +544,9 @@ def unitTest():
     dst = delete_jut(dst,1,1,0)
     cv2.imshow("result",dst)
 if __name__ == '__main__':
-    gamma = 0.5
-    lamda = 0.6700
-    bata = 0.3300
+    gamma = 0.550
+    lamda = 0.6600
+    bata = 0.3400
     unitTest()
     cv2.waitKey(0)
 
