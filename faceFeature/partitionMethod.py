@@ -157,7 +157,7 @@ def removeBackground(srcImg):
     img = srcImg.copy()
     sp = img.shape
     mask = np.zeros((img.shape[0]+2,img.shape[1]+2),np.uint8)
-    cv2.floodFill(img, mask, (5, 5), (255, 255, 255), (4.5, 4.5, 4.5), (3.5, 3.5, 3.5), 8)
+    cv2.floodFill(img, mask, (5, 5), (255, 255, 255), (4, 4, 4), (3, 3, 3), 8)
     #mask = np.zeros((img.shape[0]+2,img.shape[1]+2),np.uint8)
     #cv2.floodFill(img, mask, (5,img.shape[0]-5), (255, 255, 255), (3, 3, 3), (3, 3, 3), 8)
     cv2.imshow("floodfill", img)
@@ -192,17 +192,18 @@ def meanBrightness(imgSKIN,imgGRAY):
 def skeletonComplete(imgResult,imgSKIN):
     kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))
     new_skin = imgSKIN
+    new_skin = cv2.medianBlur(new_skin,3)
     new_skin = cv2.erode(new_skin, kernel)
     new_skin = cv2.dilate(new_skin, kernel)
     new_skin = cv2.erode(new_skin, kernel)
     new_skin = cv2.dilate(new_skin, kernel)
     new_skin = RemoveSmallRegion(new_skin,3000,0,1)
     new_skin = RemoveSmallRegion(new_skin,3000,1,1)
-    cv2.imshow("new_skinHAHA",new_skin)
-    new_skin = delete_jut(new_skin, 10, 10, 0)
-    new_skin = delete_jut(new_skin, 10, 10, 1)
-    new_skin = RemoveSmallRegion(new_skin,2000,0,1)
-    new_skin = RemoveSmallRegion(new_skin,2000,1,1)
+    # cv2.imshow("new_skinHAHA",new_skin)
+    # new_skin = delete_jut(new_skin, 10, 10, 0)
+    # new_skin = delete_jut(new_skin, 10, 10, 1)
+    # new_skin = RemoveSmallRegion(new_skin,2000,0,1)
+    # new_skin = RemoveSmallRegion(new_skin,2000,1,1)
     cv2.imshow("new_skin",new_skin)
 
     #binary, contours, hierarchy = cv2.findContours(new_skin, cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE)
@@ -255,7 +256,7 @@ def delete_jut(src,uthreshold,vthreshold,type):
                             dst[h,j] = mode
     return dst
 #对图片进行处理
-
+#去除小区域的
 def RemoveSmallRegion(src,AreaLimit,CheckMode,NeiborMode):
     RemoveCount = 0
     # 新建一幅标签图像初始化为0像素点，为了记录每个像素点检验状态的标签，0代表未检查，1代表正在检查, 2代表检查不合格（需要反转颜色），3代表检查合格或不需检查
@@ -329,7 +330,7 @@ def RemoveSmallRegion(src,AreaLimit,CheckMode,NeiborMode):
                 dst[i,j] = src[i,j]
 
     return dst
-
+#去除指定大小的区域
 def RemoveSelectRegion(src,AreaHigh,AreaLow,CheckMode,NeiborMode):
     RemoveCount = 0
     # 新建一幅标签图像初始化为0像素点，为了记录每个像素点检验状态的标签，0代表未检查，1代表正在检查, 2代表检查不合格（需要反转颜色），3代表检查合格或不需检查
@@ -403,7 +404,7 @@ def RemoveSelectRegion(src,AreaHigh,AreaLow,CheckMode,NeiborMode):
                 dst[i,j] = src[i,j]
 
     return dst
-
+#阈值化
 def myThreshold(imgGray,imgSkin,skinPoint,thresh):
     sp =  imgGray.shape
     dst = imgGray.copy()
@@ -427,9 +428,8 @@ def computeEdgesPoint(img):
                 point +=1
             sum +=1
     temp = point/sum
-
     if temp > 0 and temp<=0.05:
-        return 10*temp
+        return 8*temp
     elif temp> 0.05 and temp<=0.1:
         return 6*temp
     elif temp>0.1 and temp<=0.2:
@@ -443,7 +443,7 @@ def divisionThreshold(imgSKIN,imgFace,imgCanny):
     useless,theta = meanBrightness(imgSKIN=imgSKIN, imgGRAY=imgFace)
 
     print("平均亮度",theta)
-    divisionCount = 30
+    divisionCount = 33
     #初始化数组大小
     imgSegment = [None] * divisionCount
     imgSkinSegment = [None] * divisionCount
@@ -474,7 +474,7 @@ def divisionThreshold(imgSKIN,imgFace,imgCanny):
             dst[i*new_h:(i+1)*new_h,j*new_w:(j+1)*new_w]=imgSegment[i][j]
     ret,dst = cv2.threshold(dst,100,255,cv2.THRESH_BINARY)
     return dst,newSkin
-
+#总的图片处理过程
 def processImg(img):
     kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))
     img = cv2.resize(img,(int(img.shape[1]/2) ,int(img.shape[0]/2)),interpolation=cv2.INTER_CUBIC)
@@ -520,9 +520,10 @@ def processImg(img):
     #轮廓补充
     result = skeletonComplete(imgFace_thresh,imgSKIN=newSkin)
     return result
+#整套图片处理
 def createResult():
-    i = 1
-    while i <= 22:
+    i = 23
+    while i <= 26:
         print(i)
         img = cv2.imread("img/" + str(i) + ".jpg", 1)
         img = cv2.medianBlur(img, 3)
@@ -533,15 +534,16 @@ def createResult():
         dst = delete_jut(dst, 1, 1, 0)
         cv2.imwrite("result/" + str(i) + ".jpg", dst)
         i = i + 1
-
+#单个图片处理
 def unitTest():
-    img = cv2.imread("img/19.jpg",1)
+    img = cv2.imread("img/32.jpg",1)
     img = cv2.medianBlur(img,3)
     dst = processImg(img)
     dst = cv2.medianBlur(dst,3)
     dst = RemoveSelectRegion(dst,20,0,0,1)
     dst = delete_jut(dst,1,1,1)
     dst = delete_jut(dst,1,1,0)
+    #cv2.imwrite("result/27.jpg", dst)
     cv2.imshow("result",dst)
 if __name__ == '__main__':
     gamma = 0.550
