@@ -142,7 +142,7 @@ def skinModel(srcImg):
                 ########################################################################
             # skin color detection
             #if Cb >= 80 and Cb <= 127 and Cr >= 141 and Cr <= 173:
-            if Cb >= 77 and Cb <= 127 and Cr >= 137and Cr <= 173:
+            if Cb >= 77 and Cb <= 127 and Cr >= 140and Cr <= 173:
                 skin = 1
                 # print 'Skin detected!'
             if 0 == skin:
@@ -159,7 +159,11 @@ def removeBackground(srcImg):
     img = srcImg.copy()
     sp = img.shape
     mask = np.zeros((img.shape[0]+2,img.shape[1]+2),np.uint8)
+    mask1 = np.zeros((img.shape[0]+2,img.shape[1]+2),np.uint8)
+
     cv2.floodFill(img, mask, (3, 3), (255, 255, 255), (3, 3, 3), (3, 3, 3), 8)
+
+    cv2.floodFill(img,mask1,(sp[1]-3,3),(255, 255, 255), (3, 3, 3), (3, 3, 3), 8)
     #img = myFloodFill(img,mask,(5,5),(3, 3, 3), (3, 3, 3), 8)
     #mask = np.zeros((img.shape[0]+2,img.shape[1]+2),np.uint8)
     #cv2.floodFill(img, mask, (5,img.shape[0]-5), (255, 255, 255), (3, 3, 3), (3, 3, 3), 8)
@@ -492,7 +496,7 @@ def computeEdgesPoint(img):
     else:
         return temp
 #分区结合边缘检测的方法来进行二值化
-def divisionThreshold(imgSKIN,imgFace,imgCanny):
+def divisionThreshold(imgSKIN,imgFace,imgCanny,imgHair):
     useless,theta = meanBrightness(imgSKIN=imgSKIN, imgGRAY=imgFace)
 
     print("平均亮度",theta)
@@ -511,6 +515,7 @@ def divisionThreshold(imgSKIN,imgFace,imgCanny):
     dst = dst[0:new_h*divisionCount,0:new_w*divisionCount]
     newSkin = imgSKIN[0:new_h*divisionCount,0:new_w*divisionCount]
     newFace = imgFace[0:new_h*divisionCount,0:new_w*divisionCount]
+    newHair = imgHair[0:new_h*divisionCount,0:new_w*divisionCount]
     for i in range(divisionCount):
         for j in range(divisionCount):
             imgSegment[i][j] = imgFace[i*new_h:(i+1)*new_h,j*new_w:(j+1)*new_w]
@@ -527,21 +532,41 @@ def divisionThreshold(imgSKIN,imgFace,imgCanny):
     for i in range(divisionCount):
         for j in range(divisionCount):
             dst[i*new_h:(i+1)*new_h,j*new_w:(j+1)*new_w]=imgSegment[i][j]
+
+    #对头发进行一个简单处理
+    for i in range(newSkin.shape[0]):
+        for j in range(newSkin.shape[1]):
+            if newSkin[i, j] > 100:
+                if newFace[i, j] < 20 and i < newSkin.shape[0] / 2:
+                    dst[i, j] = 0
     ret,dst = cv2.threshold(dst,100,255,cv2.THRESH_BINARY)
     return dst,newSkin,newFace
 
 #头发处理
-def hairProcess(imgSkinTemp,imgGrayTemp,resultTemp):
-    sp = imgGrayTemp.shape
-    print(imgSkinTemp.shape,imgGrayTemp.shape,resultTemp.shape)
-    ret,imgGrayTempBin =  cv2.threshold(imgGrayTemp,254,255,cv2.THRESH_BINARY_INV)
-
-    for i in range(sp[0]):
-        for j in range(sp[1]):
-            if imgGrayTempBin[i,j] > 0 and imgSkinTemp[i,j] == 0:
-                resultTemp[i,j]=0
-    return resultTemp
-
+def hairProcess(imageSrc):
+    img = imageSrc.copy()
+    sp = img.shape
+    imgRGB = img.copy()
+    img = cv2.cvtColor(img,cv2.COLOR_BGR2GRAY)
+    x = 0
+    y =0
+    while img[x,y] >60 :
+        y+=2
+        x+=2
+    mask = np.zeros((imgRGB.shape[0] + 2, img.shape[1] + 2), np.uint8)
+    cv2.floodFill(imgRGB,mask,(x+2,y+3),(0,0,0),(3,3,3),(3,3,3),8)
+    print("1",x,y)
+    x1=0
+    y1=img.shape[1]-1
+    while img[x1,y1] > 60:
+        x1+=2;
+        y1-=2;
+    mask = np.zeros((imgRGB.shape[0] + 2, img.shape[1] + 2), np.uint8)
+    cv2.floodFill(imgRGB, mask, (y1 - 2,x1 + 2),(0, 0, 0),(3,3,3),(3,3,3), 8)
+    print("2",x1,y1)
+    imghair = cv2.cvtColor(imgRGB,cv2.COLOR_BGR2GRAY);
+    cv2.imshow("hairdetect",imgRGB)
+    return imghair
 
 
 #总的图片处理过程
@@ -550,8 +575,6 @@ def processImg(img):
     img = cv2.resize(img,(int(img.shape[1]/2) ,int(img.shape[0]/2)),interpolation=cv2.INTER_CUBIC)
     cv2.imshow("img",img)
     #获取到前景图，但是这里因为外层头发比较稀疏，所以可能会被误识别成肤色，所以用形态学操作把这层头发给去掉
-    imgFront = removeBackground(img)
-
     #眼睛和人脸检测
     faces,eyes = detectEyes(img)
     if len(faces)<1:
@@ -564,29 +587,27 @@ def processImg(img):
     #获取到的人物头像前景图
     imgFace = tailorImg(img,faces)
     imgFace = removeBackground(imgFace)
+
     #获取imgFace的肤色图
     imgFace_Skin = skinModel(imgFace)
     ####################################################
     #对肤色图进行修剪
     skinTemp = cv2.erode(imgFace_Skin, kernel)
     skinTemp = cv2.dilate(skinTemp, kernel)
+    skinTemp = cv2.dilate(skinTemp, kernel)
     #harlan
     imgFace_Skin = RemoveSmallRegion(skinTemp, 2000, 1, 1)
     imgFace_Skin = RemoveSelectRegion(imgFace_Skin, 2000,200, 0, 1)
     imgFace_Skin = RemoveSelectRegion(imgFace_Skin, 250,1, 0, 1)
+    imgHair = hairProcess(imgFace)
     cv2.imshow("skinTemp", imgFace_Skin)
 
     imgFace_Gray = cv2.cvtColor(imgFace,cv2.COLOR_BGR2GRAY)
     #harlan=======================================
-
-    #获取到作阈值化的阈值
-    #theta = meanBrightness(imgSKIN=imgFace_Skin,imgGRAY=imgFace_Gray)
-    #进行阈值化
     cv2.imshow("imgFace_gray",imgFace_Gray)
     canny = cv2.Canny(imgFace_Gray,40,120)
     cv2.imshow("canny",canny)
-    imgFace_thresh,newSkin,newFace = divisionThreshold(imgSKIN=imgFace_Skin,imgFace=imgFace_Gray,imgCanny=canny)
-    #ret,imgFace_thresh = cv2.threshold(imgFace_Gray,0.7*int(theta),255,cv2.THRESH_BINARY)
+    imgFace_thresh,newSkin,newFace = divisionThreshold(imgSKIN=imgFace_Skin,imgFace=imgFace_Gray,imgCanny=canny,imgHair= imgHair)
 
     cv2.imshow("face_threshold",imgFace_thresh)
     #轮廓补充
@@ -595,7 +616,7 @@ def processImg(img):
 #整套图片处理
 def createResult():
     i = 1
-    while i <= 39:
+    while i <= 44:
         print(i)
         img = cv2.imread("img/" + str(i) + ".jpg", 1)
         img = cv2.medianBlur(img, 3)
@@ -608,7 +629,7 @@ def createResult():
         i = i + 1
 #单个图片处理
 def unitTest():
-    img = cv2.imread("img/38.jpg",1)
+    img = cv2.imread("img/42.jpg",1)
     img = cv2.medianBlur(img,3)
     dst = processImg(img)
     dst = cv2.medianBlur(dst,3)
@@ -618,7 +639,7 @@ def unitTest():
     cv2.imshow("result",dst)
     print(dst.shape)
 if __name__ == '__main__':
-    gamma = 0.550
+    gamma = 0.560
     lamda = 0.6600
     bata = 0.3400
     createResult()
