@@ -124,7 +124,7 @@ def skinModel(srcImg):
                 ########################################################################
             # skin color detection
             #if Cb >= 80 and Cb <= 127 and Cr >= 141 and Cr <= 173:
-            if Cb >= 80 and Cb <= 127 and Cr >= 137 and Cr <= 173:
+            if Cb >= 80 and Cb <= 127 and Cr >= 141and Cr <= 173:
                 skin = 1
                 # print 'Skin detected!'
             if 0 == skin:
@@ -161,14 +161,14 @@ def tailorImg(img,faces):
             #cv2.imshow("new_img",new_img)
             return new_img
 #计算肤色部分的平均亮度
-def meanBrightness(imgSKIN,imgGRAY):
+def meanBrightness(imgSKIN,imgYCRBR):
     sp = imgSKIN.shape
     brightness = 0
     count = 0
     for i in range(sp[0]):
         for j in range(sp[1]):
            if imgSKIN[i,j] >100:
-               brightness += imgGRAY[i,j]
+               brightness += imgYCRBR[i,j]
                count +=1
     if count !=0:
         return count,brightness/count
@@ -179,13 +179,10 @@ def meanBrightness(imgSKIN,imgGRAY):
 def getMaxArea(new_skin):
     img,contours, hierarchy = cv2.findContours(new_skin, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
     maxValue = 0
-    if len(contours) == 1:
-        return 1,cv2.contourArea(contours[0])
-    else:
-        for i,contour in enumerate(contours):
-            if cv2.contourArea(contour)>maxValue:
-                maxValue = cv2.contourArea(contour)
-    return len(contours),maxValue
+    for i,contour in enumerate(contours):
+        if cv2.contourArea(contour)>maxValue:
+            maxValue = cv2.contourArea(contour)
+    return maxValue
 #轮廓完善
 def skeletonComplete(imgResult,imgSKIN,imgFace):
     kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))
@@ -196,11 +193,10 @@ def skeletonComplete(imgResult,imgSKIN,imgFace):
     new_skin = cv2.erode(new_skin, kernel)
     new_skin = cv2.dilate(new_skin, kernel)
     new_skin = RemoveSmallRegion(new_skin,3000,0,1)
+    maxth = getMaxArea(new_skin)
+    new_skin = RemoveSmallRegion(new_skin,maxth-500,1,1)
 
-    count,maxth = getMaxArea(new_skin)
-    print("最大面积:",maxth,count)
-    if count != 1:
-        new_skin = RemoveSmallRegion(new_skin,maxth-1000,1,1)
+
     cv2.imshow("new_skin",new_skin)
 
     #binary, contours, hierarchy = cv2.findContours(new_skin, cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE)
@@ -401,13 +397,13 @@ def RemoveSelectRegion(src,AreaHigh,AreaLow,CheckMode,NeiborMode):
 
     return dst
 #阈值化
-def myThreshold(imgGray,imgSkin,skinPoint,thresh):
-    sp =  imgGray.shape
-    dst = imgGray.copy()
+def myThreshold(imgYCRBR,imgSkin,skinPoint,thresh):
+    sp =  imgYCRBR.shape
+    dst = imgYCRBR.copy()
     for i in range(sp[0]):
         for j in range(sp[1]):
             if imgSkin[i,j] >100:
-                if imgGray[i,j]>thresh:
+                if imgYCRBR[i,j]>thresh:
                     dst[i,j] = 255
                 else:
                     dst[i,j] = 0
@@ -425,7 +421,7 @@ def computeEdgesPoint(img):
             sum +=1
     temp = point/sum
     if temp > 0 and temp<=0.05:
-        return 7*temp
+        return 8*temp
     elif temp> 0.05 and temp<=0.1:
         return 5*temp
     elif temp>0.1 and temp<=0.2:
@@ -435,8 +431,8 @@ def computeEdgesPoint(img):
     else:
         return temp
 #分区结合边缘检测的方法来进行二值化
-def divisionThreshold(imgSKIN,imgFace,imgCanny,imgHair):
-    useless,theta = meanBrightness(imgSKIN=imgSKIN, imgGRAY=imgFace)
+def divisionThreshold(imgSKIN,imgFaceYCRBR,imgCanny,imgHair):
+    useless,theta = meanBrightness(imgSKIN=imgSKIN, imgYCRBR=imgFaceYCRBR)
 
     print("平均亮度",theta)
     sp = imgSKIN.shape
@@ -453,17 +449,16 @@ def divisionThreshold(imgSKIN,imgFace,imgCanny,imgHair):
     dst = imgSKIN.copy()
     dst = dst[0:new_h*divisionCount,0:new_w*divisionCount]
     newSkin = imgSKIN[0:new_h*divisionCount,0:new_w*divisionCount]
-    newFace = imgFace[0:new_h*divisionCount,0:new_w*divisionCount]
+    newFace = imgFaceYCRBR[0:new_h*divisionCount,0:new_w*divisionCount]
     newHair = imgHair[0:new_h*divisionCount,0:new_w*divisionCount]
     for i in range(divisionCount):
         for j in range(divisionCount):
-            imgSegment[i][j] = imgFace[i*new_h:(i+1)*new_h,j*new_w:(j+1)*new_w]
+            imgSegment[i][j] = imgFaceYCRBR[i*new_h:(i+1)*new_h,j*new_w:(j+1)*new_w]
             imgSkinSegment[i][j] = imgSKIN[i*new_h:(i+1)*new_h,j*new_w:(j+1)*new_w]
-            skinPoint,alpha = meanBrightness(imgSKIN=imgSkinSegment[i][j],imgGRAY=imgSegment[i][j])
+            skinPoint,alpha = meanBrightness(imgSKIN=imgSkinSegment[i][j],imgYCRBR=imgSegment[i][j])
             if alpha !=0:
                 min_th = min(alpha,theta)
                 max_th = max(alpha,theta)
-                #imgSegment[i][j] = myThreshold(imgSegment[i][j],imgSkinSegment[i][j],skinPoint,0.71*thresh) gamma = 0.63 lamda = 0.855 bata = 0.145
                 edges = imgCanny[i*new_h:(i+1)*new_h,j*new_w:(j+1)*new_w]
                 #计算在这一小块中边缘点为多少个
                 edgesPointPercent = computeEdgesPoint(edges)
@@ -505,12 +500,14 @@ def hairProcess(imageSrc):
     print("2",x1,y1)
     imghair = cv2.cvtColor(imgRGB,cv2.COLOR_BGR2GRAY);
     return imghair
+
 #总的图片处理过程
 def processImg(img):
     kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))
     img = cv2.resize(img,(int(img.shape[1]/2) ,int(img.shape[0]/2)),interpolation=cv2.INTER_CUBIC)
     cv2.imshow("img",img)
-    #人脸检测
+    #获取到前景图，但是这里因为外层头发比较稀疏，所以可能会被误识别成肤色，所以用形态学操作把这层头发给去掉
+    #眼睛和人脸检测
     faces = detectFaces(img)
     if len(faces)<1:
         print("cannot detect the face")
@@ -518,6 +515,7 @@ def processImg(img):
     #获取到的人物头像前景图
     imgFace = tailorImg(img,faces)
     imgFace = cv2.medianBlur(imgFace,3)
+
     imgFace = removeBackground(imgFace)
 
     #获取imgFace的肤色图
@@ -526,21 +524,25 @@ def processImg(img):
     ####################################################
     #对肤色图进行修剪
     #skinTemp = cv2.erode(imgFace_Skin, kernel)
-    imgFace_Skin = RemoveSelectRegion(imgFace_Skin,100,0,1,1)
     imgFace_Skin = cv2.dilate(imgFace_Skin, kernel)
     imgFace_Skin = cv2.dilate(imgFace_Skin, kernel)
-
+    imgFace_Skin = cv2.dilate(imgFace_Skin, kernel)
+    imgFace_Skin = cv2.dilate(imgFace_Skin, kernel)
+    imgFace_Skin = cv2.dilate(imgFace_Skin, kernel)
+    imgFace_Skin = cv2.erode(imgFace_Skin, kernel)
+    imgFace_Skin = cv2.erode(imgFace_Skin, kernel)
     #harlan
     imgFace_Skin = RemoveSelectRegion(imgFace_Skin,3000,100,0,1)
     imgHair = hairProcess(imgFace)
     cv2.imshow("skinTemp", imgFace_Skin)
-
+    imgFace_ycrbr = cv2.cvtColor(imgFace,cv2.COLOR_BGR2YCrCb)
+    imgFaceY,imgFaceCR,imgFaceCB = cv2.split(imgFace_ycrbr)
     imgFace_Gray = cv2.cvtColor(imgFace,cv2.COLOR_BGR2GRAY)
     #harlan=======================================
     cv2.imshow("imgFace_gray",imgFace_Gray)
     canny = cv2.Canny(imgFace_Gray,40,120)
     cv2.imshow("canny",canny)
-    imgFace_thresh,newSkin,newFace = divisionThreshold(imgSKIN=imgFace_Skin,imgFace=imgFace_Gray,imgCanny=canny,imgHair= imgHair)
+    imgFace_thresh,newSkin,newFace = divisionThreshold(imgSKIN=imgFace_Skin,imgFaceYCRBR=imgFaceY,imgCanny=canny,imgHair= imgHair)
 
     cv2.imshow("face_threshold",imgFace_thresh)
     #轮廓补充
@@ -562,7 +564,7 @@ def createResult():
         i = i + 1
 #单个图片处理
 def unitTest():
-    img = cv2.imread("img/64.jpg",1)
+    img = cv2.imread("img/53.jpg",1)
     dst = processImg(img)
     dst = cv2.medianBlur(dst,3)
     dst = RemoveSelectRegion(dst,20,0,0,1)
@@ -571,7 +573,7 @@ def unitTest():
     cv2.imshow("result",dst)
     print(dst.shape)
 if __name__ == '__main__':
-    gamma = 0.580
+    gamma = 0.560
     lamda = 0.6600
     bata = 0.3400
     unitTest()
