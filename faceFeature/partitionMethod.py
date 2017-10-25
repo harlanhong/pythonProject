@@ -142,7 +142,7 @@ def skinModel(srcImg):
                 ########################################################################
             # skin color detection
             #if Cb >= 80 and Cb <= 127 and Cr >= 141 and Cr <= 173:
-            if Cb >= 77 and Cb <= 127 and Cr >= 140and Cr <= 173:
+            if Cb >= 80 and Cb <= 127 and Cr >= 141and Cr <= 173:
                 skin = 1
                 # print 'Skin detected!'
             if 0 == skin:
@@ -150,7 +150,6 @@ def skinModel(srcImg):
             else:
                 imgSkin[r,c] = 255
                 # display original image and skin image
-    cv2.imshow("skin",imgSkin)
     return imgSkin
 #通过漫水填充去除背景
 
@@ -243,6 +242,15 @@ def meanBrightness(imgSKIN,imgGRAY):
         return count,brightness/count
     else:
         return count,0
+
+#获取最大的轮廓区域
+def getMaxArea(new_skin):
+    img,contours, hierarchy = cv2.findContours(new_skin, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+    maxValue = 0
+    for i,contour in enumerate(contours):
+        if cv2.contourArea(contour)>maxValue:
+            maxValue = cv2.contourArea(contour)
+    return maxValue
 #轮廓完善
 def skeletonComplete(imgResult,imgSKIN,imgFace):
     kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))
@@ -253,13 +261,9 @@ def skeletonComplete(imgResult,imgSKIN,imgFace):
     new_skin = cv2.erode(new_skin, kernel)
     new_skin = cv2.dilate(new_skin, kernel)
     new_skin = RemoveSmallRegion(new_skin,3000,0,1)
-    new_skin = RemoveSmallRegion(new_skin,3000,1,1)
-    # cv2.imshow("new_skinHAHA",new_skin)
-    # new_skin = delete_jut(new_skin, 10, 10, 0)
-    # new_skin = delete_jut(new_skin, 10, 10, 1)
-    # new_skin = RemoveSmallRegion(new_skin,2000,0,1)
-    # new_skin = RemoveSmallRegion(new_skin,2000,1,1)
-    #imgResult = hairProcess(new_skin,imgFace,imgResult)
+    maxth = getMaxArea(new_skin)
+    new_skin = RemoveSmallRegion(new_skin,maxth-500,1,1)
+
 
     cv2.imshow("new_skin",new_skin)
 
@@ -373,7 +377,6 @@ def RemoveSmallRegion(src,AreaLimit,CheckMode,NeiborMode):
                 else:
                     CheckResult = 1
                     RemoveCount +=1
-
                 for z in range(len(GrowBuffer)):
                     CurrX = GrowBuffer[z][0]
                     CurrY = GrowBuffer[z][1]
@@ -537,7 +540,7 @@ def divisionThreshold(imgSKIN,imgFace,imgCanny,imgHair):
     for i in range(newSkin.shape[0]):
         for j in range(newSkin.shape[1]):
             if newSkin[i, j] > 100:
-                if newFace[i, j] < 20 and i < newSkin.shape[0] / 2:
+                if newHair[i,j] == 0 and newFace[i, j] < 20 and i < newSkin.shape[0] / 2:
                     dst[i, j] = 0
     ret,dst = cv2.threshold(dst,100,255,cv2.THRESH_BINARY)
     return dst,newSkin,newFace
@@ -565,7 +568,6 @@ def hairProcess(imageSrc):
     cv2.floodFill(imgRGB, mask, (y1 - 2,x1 + 2),(0, 0, 0),(3,3,3),(3,3,3), 8)
     print("2",x1,y1)
     imghair = cv2.cvtColor(imgRGB,cv2.COLOR_BGR2GRAY);
-    cv2.imshow("hairdetect",imgRGB)
     return imghair
 
 
@@ -590,15 +592,19 @@ def processImg(img):
 
     #获取imgFace的肤色图
     imgFace_Skin = skinModel(imgFace)
+    cv2.imshow("skin", imgFace_Skin)
     ####################################################
     #对肤色图进行修剪
-    skinTemp = cv2.erode(imgFace_Skin, kernel)
-    skinTemp = cv2.dilate(skinTemp, kernel)
-    skinTemp = cv2.dilate(skinTemp, kernel)
+    #skinTemp = cv2.erode(imgFace_Skin, kernel)
+    imgFace_Skin = cv2.dilate(imgFace_Skin, kernel)
+    imgFace_Skin = cv2.dilate(imgFace_Skin, kernel)
+    imgFace_Skin = cv2.dilate(imgFace_Skin, kernel)
+
     #harlan
-    imgFace_Skin = RemoveSmallRegion(skinTemp, 2000, 1, 1)
-    imgFace_Skin = RemoveSelectRegion(imgFace_Skin, 2000,200, 0, 1)
-    imgFace_Skin = RemoveSelectRegion(imgFace_Skin, 250,1, 0, 1)
+    #imgFace_Skin = RemoveSmallRegion(skinTemp, 2000, 1, 1)
+    #imgFace_Skin = RemoveSelectRegion(imgFace_Skin, 2000,200, 0, 1)
+    #imgFace_Skin = RemoveSelectRegion(imgFace_Skin, 250,1, 0, 1)
+    imgFace_Skin = RemoveSelectRegion(imgFace_Skin,3000,100,0,1)
     imgHair = hairProcess(imgFace)
     cv2.imshow("skinTemp", imgFace_Skin)
 
@@ -616,7 +622,7 @@ def processImg(img):
 #整套图片处理
 def createResult():
     i = 1
-    while i <= 44:
+    while i <= 52:
         print(i)
         img = cv2.imread("img/" + str(i) + ".jpg", 1)
         img = cv2.medianBlur(img, 3)
@@ -629,11 +635,11 @@ def createResult():
         i = i + 1
 #单个图片处理
 def unitTest():
-    img = cv2.imread("img/42.jpg",1)
+    img = cv2.imread("img/6.jpg",1)
     img = cv2.medianBlur(img,3)
     dst = processImg(img)
     dst = cv2.medianBlur(dst,3)
-    dst = RemoveSelectRegion(dst,20,0,0,1)
+    dst = RemoveSelectRegion(dst,100,30,0,1)
     dst = delete_jut(dst,1,1,1)
     dst = delete_jut(dst,1,1,0)
     cv2.imshow("result",dst)
