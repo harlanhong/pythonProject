@@ -4,21 +4,11 @@ import numpy as np
 from matplotlib import pyplot as plt
 
 if __name__ == '__main__':
-    import numpy as np
-    import cv2
-    from matplotlib import pyplot as plt
-
-    img = cv2.imread('img/gpo6i.jpg',1)
-    img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-    print(img.shape,img.shape[0],img.shape[1])
-    x=0
-    y=img.shape[1]-1
-    sp= img.shape
-    while x<img.shape[0] and y>=0:
-        img[x,y] =(0,0,0)
-        x+=1
-        y-=1
-    img[sp[1]-3,3] = (0,255,0)
-    cv2.imshow("dfd",img)
-
-    cv2.waitKey(0)
+    i = 584
+    while i <= 1270:
+        print(i)
+        img = cv2.imread("C:\\Users\Harlan\Downloads\\result\\result\\1 (" + str(i) + ")_New.jpg", 0)
+        img = cv2.medianBlur(img,3);
+        cv2.imshow("hah",img)
+        cv2.imwrite("C:\\Users\\Harlan\\Downloads\\result\\result\\1 (" + str(i) + ")_New-1.jpg", img)
+        i = i + 1

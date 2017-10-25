@@ -595,15 +595,21 @@ def processImg(img):
     cv2.imshow("skin", imgFace_Skin)
     ####################################################
     #对肤色图进行修剪
-    #skinTemp = cv2.erode(imgFace_Skin, kernel)
+    imgFace_Skin = cv2.erode(imgFace_Skin, kernel)
     imgFace_Skin = cv2.dilate(imgFace_Skin, kernel)
+    imgFace_Skin = cv2.erode(imgFace_Skin, kernel)
     imgFace_Skin = cv2.dilate(imgFace_Skin, kernel)
+    imgFace_Skin = cv2.erode(imgFace_Skin, kernel)
     imgFace_Skin = cv2.dilate(imgFace_Skin, kernel)
-
-    #harlan
-    #imgFace_Skin = RemoveSmallRegion(skinTemp, 2000, 1, 1)
-    #imgFace_Skin = RemoveSelectRegion(imgFace_Skin, 2000,200, 0, 1)
-    #imgFace_Skin = RemoveSelectRegion(imgFace_Skin, 250,1, 0, 1)
+    imgFace_Skin = cv2.erode(imgFace_Skin, kernel)
+    imgFace_Skin = cv2.dilate(imgFace_Skin, kernel)
+    imgFace_Skin = cv2.erode(imgFace_Skin, kernel)
+    imgFace_Skin = cv2.dilate(imgFace_Skin, kernel)
+    imgFace_Skin = cv2.erode(imgFace_Skin, kernel)
+    imgFace_Skin = cv2.dilate(imgFace_Skin, kernel)
+    imgFace_Skin = cv2.erode(imgFace_Skin, kernel)
+    imgFace_Skin = cv2.dilate(imgFace_Skin, kernel)
+    #======================================================
     imgFace_Skin = RemoveSelectRegion(imgFace_Skin,3000,100,0,1)
     imgHair = hairProcess(imgFace)
     cv2.imshow("skinTemp", imgFace_Skin)
@@ -621,8 +627,8 @@ def processImg(img):
     return result
 #整套图片处理
 def createResult():
-    i = 1
-    while i <= 52:
+    i = 55
+    while i <= 55:
         print(i)
         img = cv2.imread("img/" + str(i) + ".jpg", 1)
         img = cv2.medianBlur(img, 3)
@@ -635,11 +641,11 @@ def createResult():
         i = i + 1
 #单个图片处理
 def unitTest():
-    img = cv2.imread("img/6.jpg",1)
+    img = cv2.imread("img/46.jpg",1)
     img = cv2.medianBlur(img,3)
     dst = processImg(img)
     dst = cv2.medianBlur(dst,3)
-    dst = RemoveSelectRegion(dst,100,30,0,1)
+    dst = RemoveSelectRegion(dst,20,0,0,1)
     dst = delete_jut(dst,1,1,1)
     dst = delete_jut(dst,1,1,0)
     cv2.imshow("result",dst)
