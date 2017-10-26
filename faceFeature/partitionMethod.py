@@ -150,7 +150,7 @@ def removeBackground(srcImg):
     return img
 #通过人脸检测裁剪人脸
 def tailorImg(img,faces):
-    if len(faces) == 1:
+    if len(faces) == 1 or len(faces)>1:
         for i,(x,y,w,h) in enumerate(faces):
             #注意不要越界
             new_x = x - int(w/3) if x - int(w/3)>0 else 0
@@ -188,13 +188,17 @@ def getMaxArea(new_skin):
     return len(contours),maxValue
 #轮廓完善
 def skeletonComplete(imgResult,imgSKIN,imgFace):
-    kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))
+    kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (5, 5))
     new_skin = imgSKIN
     new_skin = cv2.medianBlur(new_skin,3)
-    new_skin = cv2.erode(new_skin, kernel)
     new_skin = cv2.dilate(new_skin, kernel)
     new_skin = cv2.erode(new_skin, kernel)
     new_skin = cv2.dilate(new_skin, kernel)
+    new_skin = cv2.erode(new_skin, kernel)
+    new_skin = cv2.dilate(new_skin, kernel)
+    new_skin = cv2.dilate(new_skin, kernel)
+    new_skin = cv2.erode(new_skin, kernel)
+    new_skin = cv2.erode(new_skin, kernel)
     new_skin = RemoveSmallRegion(new_skin,3000,0,1)
 
     count,maxth = getMaxArea(new_skin)
@@ -202,17 +206,20 @@ def skeletonComplete(imgResult,imgSKIN,imgFace):
     if count != 1:
         new_skin = RemoveSmallRegion(new_skin,maxth-1000,1,1)
     cv2.imshow("new_skin",new_skin)
-
-    #binary, contours, hierarchy = cv2.findContours(new_skin, cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE)
-    #cv2.drawContours(binary, contours, -1, (0, 0, 255), 3)
-    #cv2.imshow("inver",binary)
-    img = cv2.GaussianBlur(new_skin, (3, 3), 0)  # 高斯平滑处理原图像降噪
-    canny = cv2.Canny(img, 50, 150)  # apertureSize默认为3
-    ret,skeleton = cv2.threshold(canny,100,255,cv2.THRESH_BINARY_INV)
-    kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))
-    skeleton = cv2.erode(skeleton, kernel)
-    #skeleton = cv2.erode(skeleton, kernel)
-    result = cv2.bitwise_and(skeleton,imgResult)
+    if count == 1 and maxth > 3/5*(new_skin.shape[0]*new_skin.shape[1]):
+        print("轮廓面积过大，不认为是正常的轮廓！")
+        result = imgResult
+    else:
+        #binary, contours, hierarchy = cv2.findContours(new_skin, cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE)
+        #cv2.drawContours(binary, contours, -1, (0, 0, 255), 3)
+        #cv2.imshow("inver",binary)
+        img = cv2.GaussianBlur(new_skin, (3, 3), 0)  # 高斯平滑处理原图像降噪
+        canny = cv2.Canny(img, 50, 150)  # apertureSize默认为3
+        ret,skeleton = cv2.threshold(canny,100,255,cv2.THRESH_BINARY_INV)
+        kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))
+        skeleton = cv2.erode(skeleton, kernel)
+        #skeleton = cv2.erode(skeleton, kernel)
+        result = cv2.bitwise_and(skeleton,imgResult)
     cv2.imshow("skeletonComplete",result)
     return result
 #去除二值图像边缘的突出部
@@ -440,7 +447,7 @@ def divisionThreshold(imgSKIN,imgFace,imgCanny,imgHair):
 
     print("平均亮度",theta)
     sp = imgSKIN.shape
-    divisionCount = math.floor(sp[1]/10)
+    divisionCount = math.floor(sp[1]/20)
     #初始化数组大小
     imgSegment = [None] * divisionCount
     imgSkinSegment = [None] * divisionCount
@@ -476,7 +483,7 @@ def divisionThreshold(imgSKIN,imgFace,imgCanny,imgHair):
     for i in range(newSkin.shape[0]):
         for j in range(newSkin.shape[1]):
             if newSkin[i, j] > 100:
-                if newHair[i,j] == 0 and newFace[i, j] < 20 and i < newSkin.shape[0] / 2:
+                if newHair[i,j] == 0 and newFace[i, j] < 30 and i < newSkin.shape[0] / 2:
                     dst[i, j] = 0
     ret,dst = cv2.threshold(dst,100,255,cv2.THRESH_BINARY)
     return dst,newSkin,newFace
@@ -517,7 +524,7 @@ def processImg(img):
         exit(0)
     #获取到的人物头像前景图
     imgFace = tailorImg(img,faces)
-    imgFace = cv2.medianBlur(imgFace,3)
+
     imgFace = removeBackground(imgFace)
 
     #获取imgFace的肤色图
@@ -527,8 +534,8 @@ def processImg(img):
     #对肤色图进行修剪
     #skinTemp = cv2.erode(imgFace_Skin, kernel)
     imgFace_Skin = RemoveSelectRegion(imgFace_Skin,100,0,1,1)
-    imgFace_Skin = cv2.dilate(imgFace_Skin, kernel)
-    imgFace_Skin = cv2.dilate(imgFace_Skin, kernel)
+    #imgFace_Skin = cv2.dilate(imgFace_Skin, kernel)
+    #imgFace_Skin = cv2.dilate(imgFace_Skin, kernel)
 
     #harlan
     imgFace_Skin = RemoveSelectRegion(imgFace_Skin,3000,100,0,1)
@@ -549,10 +556,10 @@ def processImg(img):
 #整套图片处理
 def createResult():
     i = 1
-    while i <= 52:
+    while i <= 68:
         print(i)
         img = cv2.imread("img/" + str(i) + ".jpg", 1)
-
+        img = cv2.medianBlur(img,3)
         dst = processImg(img)
         dst = cv2.medianBlur(dst, 3)
         dst = RemoveSelectRegion(dst, 20, 0, 0, 1)
@@ -562,9 +569,12 @@ def createResult():
         i = i + 1
 #单个图片处理
 def unitTest():
-    img = cv2.imread("img/64.jpg",1)
+    img = cv2.imread("img/53.jpg",1)
+    img = cv2.medianBlur(img,3)
+
     dst = processImg(img)
-    dst = cv2.medianBlur(dst,3)
+    img = cv2.medianBlur(img,3)
+
     dst = RemoveSelectRegion(dst,20,0,0,1)
     dst = delete_jut(dst,1,1,1)
     dst = delete_jut(dst,1,1,0)
@@ -574,6 +584,6 @@ if __name__ == '__main__':
     gamma = 0.580
     lamda = 0.6600
     bata = 0.3400
-    unitTest()
+    createResult()
     cv2.waitKey(0)
 
