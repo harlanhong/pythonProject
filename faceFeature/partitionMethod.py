@@ -124,7 +124,7 @@ def skinModel(srcImg):
                 ########################################################################
             # skin color detection
             #if Cb >= 80 and Cb <= 127 and Cr >= 141 and Cr <= 173:
-            if Cb >= 80 and Cb <= 127 and Cr >= 137 and Cr <= 173:
+            if Cb >= 80 and Cb <= 127 and Cr >= 143 and Cr <= 173:
                 skin = 1
                 # print 'Skin detected!'
             if 0 == skin:
@@ -161,13 +161,29 @@ def tailorImg(img,faces):
             #cv2.imshow("new_img",new_img)
             return new_img
 #计算肤色部分的平均亮度
-def meanBrightness(imgSKIN,imgGRAY):
+def meanBrightness_copy(imgSKIN,imgGRAY):
     sp = imgSKIN.shape
     brightness = 0
     count = 0
     for i in range(sp[0]):
         for j in range(sp[1]):
-           if imgSKIN[i,j] >100:
+           if imgSKIN[i,j] >100 and imgGRAY[i,j]<150:
+               brightness += imgGRAY[i,j]
+               count +=1
+    if count !=0:
+        return count,brightness/count
+    else:
+        return count,0
+def meanBrightness(imgSKIN,imgGRAY):
+    #先得一个有容错的灰度均值
+    #err_mean = meanBrightness_copy(imgSKIN,imgGRAY);
+    #print(err_mean)
+    sp = imgSKIN.shape
+    brightness = 0
+    count = 0
+    for i in range(sp[0]):
+        for j in range(sp[1]):
+           if imgSKIN[i,j] >100:# and imgGRAY[i,j]<err_mean[1]+70:
                brightness += imgGRAY[i,j]
                count +=1
     if count !=0:
@@ -199,9 +215,12 @@ def skeletonComplete(imgResult,imgSKIN,imgFace):
     new_skin = cv2.dilate(new_skin, kernel)
     new_skin = cv2.erode(new_skin, kernel)
     new_skin = cv2.erode(new_skin, kernel)
-    new_skin = RemoveSmallRegion(new_skin,3000,0,1)
+    new_skin = cv2.erode(new_skin, kernel)
+    new_skin = cv2.dilate(new_skin, kernel)
 
+    new_skin = RemoveSmallRegion(new_skin,3000,0,1)
     count,maxth = getMaxArea(new_skin)
+    cv2.imshow("beforeRemoveLargestArea",new_skin)
     print("最大面积:",maxth,count)
     if count != 1:
         new_skin = RemoveSmallRegion(new_skin,maxth-1000,1,1)
@@ -432,13 +451,13 @@ def computeEdgesPoint(img):
             sum +=1
     temp = point/sum
     if temp > 0 and temp<=0.05:
-        return 7*temp
-    elif temp> 0.05 and temp<=0.1:
         return 5*temp
+    elif temp> 0.05 and temp<=0.1:
+        return 3*temp
     elif temp>0.1 and temp<=0.2:
-        return 2.5*temp
+        return 1.5*temp
     elif temp>0.3 and temp<=0.4:
-        return 1.4*temp
+        return 1.1*temp
     else:
         return temp
 #分区结合边缘检测的方法来进行二值化
@@ -447,7 +466,7 @@ def divisionThreshold(imgSKIN,imgFace,imgCanny,imgHair):
 
     print("平均亮度",theta)
     sp = imgSKIN.shape
-    divisionCount = math.floor(sp[1]/20)
+    divisionCount = math.floor(sp[1]/6)
     #初始化数组大小
     imgSegment = [None] * divisionCount
     imgSkinSegment = [None] * divisionCount
@@ -474,7 +493,12 @@ def divisionThreshold(imgSKIN,imgFace,imgCanny,imgHair):
                 edges = imgCanny[i*new_h:(i+1)*new_h,j*new_w:(j+1)*new_w]
                 #计算在这一小块中边缘点为多少个
                 edgesPointPercent = computeEdgesPoint(edges)
-                imgSegment[i][j] = myThreshold(imgSegment[i][j],imgSkinSegment[i][j],skinPoint,(1+edgesPointPercent)*gamma*(lamda*max_th+bata*min_th))
+                if alpha>theta:
+                    #尽量往上
+                    imgSegment[i][j] = myThreshold(imgSegment[i][j],imgSkinSegment[i][j],skinPoint,(1+edgesPointPercent)*gamma*(lamda*max_th+bata*min_th))
+                else:
+                    #尽量往下
+                    imgSegment[i][j] = myThreshold(imgSegment[i][j],imgSkinSegment[i][j],skinPoint,(1+edgesPointPercent)*gamma*(lamda1*max_th+bata1*min_th))
     for i in range(divisionCount):
         for j in range(divisionCount):
             dst[i*new_h:(i+1)*new_h,j*new_w:(j+1)*new_w]=imgSegment[i][j]
@@ -533,12 +557,12 @@ def processImg(img):
     ####################################################
     #对肤色图进行修剪
     #skinTemp = cv2.erode(imgFace_Skin, kernel)
-    imgFace_Skin = RemoveSelectRegion(imgFace_Skin,100,0,1,1)
+    #imgFace_Skin = RemoveSelectRegion(imgFace_Skin,100,0,1,1)
     #imgFace_Skin = cv2.dilate(imgFace_Skin, kernel)
     #imgFace_Skin = cv2.dilate(imgFace_Skin, kernel)
 
     #harlan
-    imgFace_Skin = RemoveSelectRegion(imgFace_Skin,3000,100,0,1)
+    imgFace_Skin = RemoveSelectRegion(imgFace_Skin,4000,0,0,1)
     imgHair = hairProcess(imgFace)
     cv2.imshow("skinTemp", imgFace_Skin)
 
@@ -556,7 +580,7 @@ def processImg(img):
 #整套图片处理
 def createResult():
     i = 1
-    while i <= 68:
+    while i <= 72:
         print(i)
         img = cv2.imread("img/" + str(i) + ".jpg", 1)
         img = cv2.medianBlur(img,3)
@@ -569,21 +593,22 @@ def createResult():
         i = i + 1
 #单个图片处理
 def unitTest():
-    img = cv2.imread("img/53.jpg",1)
+    img = cv2.imread("img/16.jpg",1)
     img = cv2.medianBlur(img,3)
-
     dst = processImg(img)
     img = cv2.medianBlur(img,3)
 
     dst = RemoveSelectRegion(dst,20,0,0,1)
     dst = delete_jut(dst,1,1,1)
     dst = delete_jut(dst,1,1,0)
+
     cv2.imshow("result",dst)
     print(dst.shape)
 if __name__ == '__main__':
-    gamma = 0.580
-    lamda = 0.6600
-    bata = 0.3400
-    createResult()
+    gamma = 0.700
+    lamda = 0.7000
+    bata = 0.3000
+    lamda1 = 0.35000
+    bata1 = 0.65000
+    unitTest()
     cv2.waitKey(0)
-
