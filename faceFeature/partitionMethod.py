@@ -414,16 +414,26 @@ def RemoveSelectRegion(src,AreaHigh,AreaLow,CheckMode,NeiborMode):
 
     return dst
 #阈值化
-def myThreshold(imgGray,imgSkin,skinPoint,thresh):
+def myThreshold(imgGray,imgSkin,skinPoint,thresh,globalAvg=0):
     sp =  imgGray.shape
     dst = imgGray.copy()
-    for i in range(sp[0]):
-        for j in range(sp[1]):
-            if imgSkin[i,j] >100:
-                if imgGray[i,j]>thresh:
-                    dst[i,j] = 255
-                else:
-                    dst[i,j] = 0
+    print(thresh,globalAvg)
+    if globalAvg<120:
+        for i in range(sp[0]):
+            for j in range(sp[1]):
+                if imgSkin[i,j] >100:
+                    if imgGray[i,j]>thresh:
+                        dst[i,j] = 255
+                    else:
+                        dst[i,j] = 0
+    else:
+        for i in range(sp[0]):
+            for j in range(sp[1]):
+                if imgSkin[i,j] >100:
+                    if imgGray[i,j]>thresh and imgGray[i,j]>(globalAvg/1.15):
+                        dst[i,j] = 255
+                    else:
+                        dst[i,j] = 0
     return dst
 
 #计算图片中边缘点的个数
@@ -483,10 +493,10 @@ def divisionThreshold(imgSKIN,imgFace,imgCanny,imgHair,imgBGR):
                 edgesPointPercent = computeEdgesPoint(edges)
                 if alpha>theta:
                     #尽量往上
-                    imgSegment[i][j] = myThreshold(imgSegment[i][j],imgSkinSegment[i][j],skinPoint,(1+edgesPointPercent)*gamma*(lamda*max_th+bata*min_th))
+                    imgSegment[i][j] = myThreshold(imgSegment[i][j],imgSkinSegment[i][j],skinPoint,(1+edgesPointPercent)*gamma*(lamda*max_th+bata*min_th),globalAvg=theta)
                 else:
                     #尽量往下
-                    imgSegment[i][j] = myThreshold(imgSegment[i][j],imgSkinSegment[i][j],skinPoint,(1+edgesPointPercent)*gamma*(lamda1*max_th+bata1*min_th))
+                    imgSegment[i][j] = myThreshold(imgSegment[i][j],imgSkinSegment[i][j],skinPoint,(1+edgesPointPercent)*gamma*(lamda1*max_th+bata1*min_th),globalAvg=theta)
     for i in range(divisionCount):
         for j in range(divisionCount):
             dst[i*new_h:(i+1)*new_h,j*new_w:(j+1)*new_w]=imgSegment[i][j]
@@ -610,14 +620,14 @@ def createResult():
         i = i + 1
 #单个图片处理
 def unitTest():
-    #img = cv2.imread("imageTailor/1 (477).jpg",1)
-    img = cv2.imread("img/89.jpg")
+    img = cv2.imread("imageTailor/1 (424).jpg",1)
+    #img = cv2.imread("img/89.jpg")
     img = cv2.medianBlur(img, 3)
     dst = processImg(img)
     dst = cv2.medianBlur(dst, 3)
     dst = RemoveSelectRegion(dst, 20, 0, 0, 1)
-    dst = delete_jut(dst, 1, 1, 1)
-    dst = delete_jut(dst, 1, 1, 0)
+    #dst = delete_jut(dst, 1, 1, 1)
+    #dst = delete_jut(dst, 1, 1, 0)
     cv2.imshow("result",dst)
     print(dst.shape)
 if __name__ == '__main__':
