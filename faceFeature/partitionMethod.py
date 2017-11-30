@@ -3,6 +3,7 @@ import cv2
 import numpy as np
 import math
 import faceFeature.HistUtil as histUtil
+import faceFeature.globalThresholdMothed as globalThresholdMothod
 #检测人脸
 def detectFaces(srcImg):
     img = srcImg.copy()
@@ -414,10 +415,15 @@ def RemoveSelectRegion(src,AreaHigh,AreaLow,CheckMode,NeiborMode):
 
     return dst
 #阈值化
-def myThreshold(imgGray,imgSkin,skinPoint,thresh,globalAvg=0):
+def myThreshold(imgGray,imgSkin,skinPoint,thresh,globalAvg=0,localAvg=0):
+    #对每一个局部进行阈值处理，在这里，对各个因素加以考虑，下面列举几种情况
+    #是皮肤且应该阈值化为白色的但是因为肤色偏暗
+    #是皮肤但是因为肤色模型的原因，检测为非皮肤，应该阈值化为白色
+    #非皮肤但是被肤色模型判定为肤色，例如眉毛、额头上的头发，这些应该阈值化为黑色
+    #非皮肤且肤色模型检测正确，但是因为灰度值很高，很难阈值化为黑色
     sp =  imgGray.shape
     dst = imgGray.copy()
-    print(thresh,globalAvg)
+    #print(thresh,globalAvg,localAvg)
     if globalAvg<120:
         for i in range(sp[0]):
             for j in range(sp[1]):
@@ -430,7 +436,7 @@ def myThreshold(imgGray,imgSkin,skinPoint,thresh,globalAvg=0):
         for i in range(sp[0]):
             for j in range(sp[1]):
                 if imgSkin[i,j] >100:
-                    if imgGray[i,j]>thresh and imgGray[i,j]>(globalAvg/1.15):
+                    if imgGray[i,j]>thresh and imgGray[i,j]>(globalAvg+localAvg)/2.25:
                         dst[i,j] = 255
                     else:
                         dst[i,j] = 0
@@ -493,10 +499,10 @@ def divisionThreshold(imgSKIN,imgFace,imgCanny,imgHair,imgBGR):
                 edgesPointPercent = computeEdgesPoint(edges)
                 if alpha>theta:
                     #尽量往上
-                    imgSegment[i][j] = myThreshold(imgSegment[i][j],imgSkinSegment[i][j],skinPoint,(1+edgesPointPercent)*gamma*(lamda*max_th+bata*min_th),globalAvg=theta)
+                    imgSegment[i][j] = myThreshold(imgSegment[i][j],imgSkinSegment[i][j],skinPoint,(1+edgesPointPercent)*gamma*(lamda*max_th+bata*min_th),globalAvg=theta,localAvg=alpha)
                 else:
                     #尽量往下
-                    imgSegment[i][j] = myThreshold(imgSegment[i][j],imgSkinSegment[i][j],skinPoint,(1+edgesPointPercent)*gamma*(lamda1*max_th+bata1*min_th),globalAvg=theta)
+                    imgSegment[i][j] = myThreshold(imgSegment[i][j],imgSkinSegment[i][j],skinPoint,(1+edgesPointPercent)*gamma*(lamda1*max_th+bata1*min_th),globalAvg=theta,localAvg=alpha)
     for i in range(divisionCount):
         for j in range(divisionCount):
             dst[i*new_h:(i+1)*new_h,j*new_w:(j+1)*new_w]=imgSegment[i][j]
@@ -550,6 +556,7 @@ def removeSkinNoise(imgGray,imgBin):
 
 
 #总的图片处理过程
+
 def processImg(img):
     kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))
     if img.shape[1]>800 or img.shape[0]>800:
@@ -559,7 +566,7 @@ def processImg(img):
     faces = detectFaces(img)
     if len(faces)<1:
         print("cannot detect the face")
-        exit(0)
+        return cv2.cvtColor(img,cv2.COLOR_BGR2GRAY);
     #获取到的人物头像前景图
     imgFace = tailorImg(img,faces)
     cv2.imshow("img", imgFace)
@@ -567,47 +574,49 @@ def processImg(img):
 
     #获取imgFace的肤色图
     skinCounter,imgFace_Skin = skinModel(imgFace)
-    if skinCounter<500:
-        print("肤色检测：少于500个肤色点，不正确照片")
-        return imgFace;
-    cv2.imshow("skin", imgFace_Skin)
+    if skinCounter<imgFace_Skin.shape[0]*imgFace_Skin.shape[1]/6:
+        print("肤色检测：少于500个肤色点，不正确照片采用全局阈值")
+        result = globalThresholdMothod.globalThreshod(img)
+        return result;
+    else:
+        cv2.imshow("skin", imgFace_Skin)
 
-    #去除肤色噪点
-    imgFace_Gray = cv2.cvtColor(imgFace, cv2.COLOR_BGR2GRAY)
-    imgFace_Skin = removeSkinNoise(imgFace_Gray,imgFace_Skin)
-    ####################################################
+        #去除肤色噪点
+        imgFace_Gray = cv2.cvtColor(imgFace, cv2.COLOR_BGR2GRAY)
+        imgFace_Skin = removeSkinNoise(imgFace_Gray,imgFace_Skin)
+        ####################################################
 
-    #harlan
-    #对肤色图进行修剪
+        #harlan
+        #对肤色图进行修剪
 
-    imgFace_Skin = RemoveSelectRegion(imgFace_Skin,5000,0,0,1)
+        imgFace_Skin = RemoveSelectRegion(imgFace_Skin,5000,0,0,1)
 
-    #imgHair = hairProcess(imgFace)
-    #cv2.imshow("skinTemp", imgFace_Skin)
+        #imgHair = hairProcess(imgFace)
+        #cv2.imshow("skinTemp", imgFace_Skin)
 
 
-    #harlan=======================================
-    cv2.imshow("imgFace_gray",imgFace_Gray)
-    canny = cv2.Canny(imgFace_Gray,40,120)
-    cv2.imshow("canny",canny)
-    imgFace_thresh,newSkin,newFace,newBGR = divisionThreshold(imgSKIN=imgFace_Skin,imgFace=imgFace_Gray,imgCanny=canny,imgHair= None,imgBGR = imgFace)
+        #harlan=======================================
+        cv2.imshow("imgFace_gray",imgFace_Gray)
+        canny = cv2.Canny(imgFace_Gray,40,120)
+        cv2.imshow("canny",canny)
+        imgFace_thresh,newSkin,newFace,newBGR = divisionThreshold(imgSKIN=imgFace_Skin,imgFace=imgFace_Gray,imgCanny=canny,imgHair= None,imgBGR = imgFace)
+        cv2.imshow("face_threshold",imgFace_thresh)
+        #轮廓补充
+        #result = skeletonComplete(imgFace_thresh,imgSKIN=newSkin,imgFace=newFace)
+        skeletonFace = removeBackground(newFace, (0, 0, 0))
+        cv2.imshow("skeletonFace",skeletonFace)
+        skeleton = histUtil.getSkeleton(skeletonFace, 1, 1)
 
-    cv2.imshow("face_threshold",imgFace_thresh)
-    #轮廓补充
-    #result = skeletonComplete(imgFace_thresh,imgSKIN=newSkin,imgFace=newFace)
-    skeletonFace = removeBackground(newFace, (0, 0, 0))
-    cv2.imshow("skeletonFace",skeletonFace)
-    skeleton = histUtil.getSkeleton(skeletonFace, 1, 1)
-
-    result = cv2.bitwise_and(imgFace_thresh, skeleton)
-    return result
+        result = cv2.bitwise_and(imgFace_thresh, skeleton)
+        return result
 #整套图片处理
 def createResult():
-    i = 1
-    while i <= 104:
+    i = 186
+    while i <= 907:
         print(i)
-        #img = cv2.imread("imageTailor/1 (" + str(i) + ").jpg", 1)
-        img = cv2.imread("img/"+str(i)+".jpg")
+        img = cv2.imread("imageTailor/1 (" + str(i) + ").jpg", 1)
+        #img = cv2.imread("img/"+str(i)+".jpg")
+        i = i + 1
         if img is None:
             continue;
         img = cv2.medianBlur(img,3)
@@ -617,13 +626,14 @@ def createResult():
         dst = delete_jut(dst, 1, 1, 1)
         dst = delete_jut(dst, 1, 1, 0)
         cv2.imwrite("result/" + str(i) + ".jpg", dst)
-        i = i + 1
+
 #单个图片处理
 def unitTest():
-    img = cv2.imread("imageTailor/1 (424).jpg",1)
-    #img = cv2.imread("img/89.jpg")
+    #img = cv2.imread("imageTailor/1 (786).jpg",1)
+    img = cv2.imread("imageTailor/1 (151).jpg")
     img = cv2.medianBlur(img, 3)
     dst = processImg(img)
+
     dst = cv2.medianBlur(dst, 3)
     dst = RemoveSelectRegion(dst, 20, 0, 0, 1)
     #dst = delete_jut(dst, 1, 1, 1)
