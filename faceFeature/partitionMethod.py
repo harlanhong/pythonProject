@@ -178,7 +178,16 @@ def meanBrightness(imgSKIN,imgGRAY):
         return count,brightness/count
     else:
         return count,0
-
+#计算全局平均肤色值（包括背景）
+def computAvg(imgGray):
+    sp = imgGray.shape
+    avg = 0
+    counter = 0
+    for i in range(sp[0]):
+        for j in range(sp[1]):
+            avg+=imgGray[i,j]
+            counter+=1
+    return avg/counter
 #获取最大的轮廓区域
 def getMaxArea(new_skin):
     img,contours, hierarchy = cv2.findContours(new_skin, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
@@ -424,11 +433,11 @@ def myThreshold(imgGray,imgSkin,skinPoint,thresh,globalAvg=0,localAvg=0):
     sp =  imgGray.shape
     dst = imgGray.copy()
     #print(thresh,globalAvg,localAvg)
-    if globalAvg<120:
+    if globalAvg<145:
         for i in range(sp[0]):
             for j in range(sp[1]):
                 if imgSkin[i,j] >100:
-                    if imgGray[i,j]>thresh:
+                    if imgGray[i,j]>thresh and imgGray[i,j]>globalAvg-25:
                         dst[i,j] = 255
                     else:
                         dst[i,j] = 0
@@ -565,17 +574,21 @@ def processImg(img):
     #人脸检测
     faces = detectFaces(img)
     if len(faces)<1:
-        print("cannot detect the face")
-        return cv2.cvtColor(img,cv2.COLOR_BGR2GRAY);
+        print("人脸识别失败，采用全局阈值")
+        return globalThresholdMothod.globalThreshod(img)
     #获取到的人物头像前景图
     imgFace = tailorImg(img,faces)
     cv2.imshow("img", imgFace)
+    #获取imgFace的肤色图
+
+    skinCounter,imgFace_Skin = skinModel(imgFace)
+
     imgFace = removeBackground(imgFace)
 
-    #获取imgFace的肤色图
-    skinCounter,imgFace_Skin = skinModel(imgFace)
-    if skinCounter<imgFace_Skin.shape[0]*imgFace_Skin.shape[1]/6:
-        print("肤色检测：少于500个肤色点，不正确照片采用全局阈值")
+
+    if skinCounter<imgFace_Skin.shape[0]*imgFace_Skin.shape[1]/5:
+        print(skinCounter,imgFace_Skin.shape[0]*imgFace_Skin.shape[1])
+        print("肤色检测：少于1/5区域，模型缺陷，无法分区处理，采用全局阈值")
         result = globalThresholdMothod.globalThreshod(img)
         return result;
     else:
@@ -611,7 +624,7 @@ def processImg(img):
         return result
 #整套图片处理
 def createResult():
-    i = 186
+    i = 1
     while i <= 907:
         print(i)
         img = cv2.imread("imageTailor/1 (" + str(i) + ").jpg", 1)
@@ -625,12 +638,12 @@ def createResult():
         dst = RemoveSelectRegion(dst, 20, 0, 0, 1)
         dst = delete_jut(dst, 1, 1, 1)
         dst = delete_jut(dst, 1, 1, 0)
-        cv2.imwrite("result/" + str(i) + ".jpg", dst)
+        cv2.imwrite("result/" + str(i-1) + ".jpg", dst)
 
 #单个图片处理
 def unitTest():
-    #img = cv2.imread("imageTailor/1 (786).jpg",1)
-    img = cv2.imread("imageTailor/1 (151).jpg")
+    img = cv2.imread("img/love.jpg",1)
+    #img = cv2.imread("imageTailor/1 (482).jpg")
     img = cv2.medianBlur(img, 3)
     dst = processImg(img)
 
@@ -646,5 +659,5 @@ if __name__ == '__main__':
     bata = 0.3000
     lamda1 = 0.35000
     bata1 = 0.65000
-    unitTest()
+    createResult()
     cv2.waitKey(0)
