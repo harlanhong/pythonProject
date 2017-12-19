@@ -340,6 +340,8 @@ def getSkeleton(img,removedetails_times,erode_times):#输入为去除背景后�
     ret,erode_output = cv2.threshold(erode_output,5,255,cv2.THRESH_BINARY)
     outLineResult = cv2.subtract(closeResult,erode_output)
     result = cv2.medianBlur(outLineResult,3)
+    if result.ndim >1:
+        result = cv2.cvtColor(result,cv2.COLOR_BGR2GRAY)
     ret,result = cv2.threshold(result,100,255,cv2.THRESH_BINARY_INV)
     result = cv2.erode(result,element,iterations=1)
     return result
