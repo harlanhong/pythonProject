@@ -1,7 +1,88 @@
 import cv2
 import math
-from faceFeature.partitionMethod import *
-
+import numpy as np
+def skinModel(srcImg):
+    img = srcImg.copy()
+    rows, cols, channels = img.shape
+    # light compensation
+    gamma = 0.95
+    for r in range(rows):
+        for c in range(cols):
+            # get values of blue, green, red
+            B = img.item(r, c, 0)
+            G = img.item(r, c, 1)
+            R = img.item(r, c, 2)
+            # gamma correction
+            B = int(B ** gamma)
+            G = int(G ** gamma)
+            R = int(R ** gamma)
+            # set values of blue, green, red
+            img.itemset((r, c, 0), B)
+            img.itemset((r, c, 1), G)
+            img.itemset((r, c, 2), R)
+            ###############################################################################
+    # convert color space from rgb to ycbcr
+    imgYcc = cv2.cvtColor(img, cv2.COLOR_BGR2YCR_CB)
+    # convert color space from bgr to rgb
+    img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+    # prepare an empty image space
+    imgSkin = np.zeros(img.shape, np.uint8)
+    # copy original image
+    imgSkin = np.zeros((img.shape[0],img.shape[1]),np.uint8)
+    ################################################################################
+    # define variables for skin rules
+    Wcb = 46.97
+    Wcr = 38.76
+    WHCb = 14
+    WHCr = 10
+    WLCb = 23
+    WLCr = 20
+    Ymin = 16
+    Ymax = 235
+    Kl = 125
+    Kh = 188
+    WCb = 0
+    WCr = 0
+    CbCenter = 0
+    CrCenter = 0
+    ################################################################################
+    skinCounter=0
+    for r in range(rows):
+        for c in range(cols):
+            # non-skin area if skin equals 0, skin area otherwise
+            skin = 0
+            ########################################################################
+            # color space transformation
+            # get values from ycbcr color space
+            Y = imgYcc.item(r, c, 0)
+            Cr = imgYcc.item(r, c, 1)
+            Cb = imgYcc.item(r, c, 2)
+            if Y < Kl:
+                WCr = WLCr + (Y - Ymin) * (Wcr - WLCr) / (Kl - Ymin)
+                WCb = WLCb + (Y - Ymin) * (Wcb - WLCb) / (Kl - Ymin)
+                CrCenter = 154 - (Kl - Y) * (154 - 144) / (Kl - Ymin)
+                CbCenter = 108 + (Kl - Y) * (118 - 108) / (Kl - Ymin)
+            elif Y > Kh:
+                WCr = WHCr + (Y - Ymax) * (Wcr - WHCr) / (Ymax - Kh)
+                WCb = WHCb + (Y - Ymax) * (Wcb - WHCb) / (Ymax - Kh)
+                CrCenter = 154 + (Y - Kh) * (154 - 132) / (Ymax - Kh)
+                CbCenter = 108 + (Y - Kh) * (118 - 108) / (Ymax - Kh)
+            if Y < Kl or Y > Kh:
+                Cr = (Cr - CrCenter) * Wcr / WCr + 154
+                Cb = (Cb - CbCenter) * Wcb / WCb + 108
+                ########################################################################
+            # skin color detection
+            #if Cb >= 80 and Cb <= 127 and Cr >= 141 and Cr <= 173:
+            if Cb >= 80 and Cb <= 127 and Cr >= 133 and Cr <= 177:
+                skin = 1
+                # print 'Skin detected!'
+            if 0 == skin:
+                imgSkin[r,c] = 0
+            else:
+                imgSkin[r,c] = 255
+                skinCounter+=1
+                # display original image and skin image
+    return skinCounter,imgSkin
 def globalThreshod(inputImg):
     face_cascade = cv2.CascadeClassifier("data/haarcascades/haarcascade_frontalface_alt2.xml")
     Y=[0]
@@ -97,7 +178,7 @@ def globalThreshod(inputImg):
             for i in range(temp.shape[0]):
                 for j in range(temp.shape[1]):
                     if cv2.pointPolygonTest(result,(i,j),0)!=1:
-                        if temp[i,j]>avgback*0.618:
+                        if temp[i,j]>avgback:
                             temp[i,j]=255
                         else:
                             temp[i,j]=0
@@ -131,7 +212,7 @@ def globalThreshod(inputImg):
     return temp
 
 if __name__ == '__main__':
-    img = cv2.imread("imageTailor/1 (151).jpg")
+    img = cv2.imread("imageTailor/1 (156).jpg")
     result = globalThreshod(img)
     cv2.imshow("result",result)
     cv2.waitKey(0)

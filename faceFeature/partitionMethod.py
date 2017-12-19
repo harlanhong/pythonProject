@@ -4,6 +4,7 @@ import numpy as np
 import math
 import faceFeature.HistUtil as histUtil
 import faceFeature.globalThresholdMothed as globalThresholdMothod
+import faceFeature.nonSkinMethod as nonSkinMode
 #检测人脸
 def detectFaces(srcImg):
     img = srcImg.copy()
@@ -437,7 +438,7 @@ def myThreshold(imgGray,imgSkin,skinPoint,thresh,globalAvg=0,localAvg=0):
         for i in range(sp[0]):
             for j in range(sp[1]):
                 if imgSkin[i,j] >100:
-                    if imgGray[i,j]>thresh and imgGray[i,j]>globalAvg-25:
+                    if imgGray[i,j]>thresh:# and imgGray[i,j]>globalAvg-25:
                         dst[i,j] = 255
                     else:
                         dst[i,j] = 0
@@ -475,7 +476,6 @@ def computeEdgesPoint(img):
 #分区结合边缘检测的方法来进行二值化
 def divisionThreshold(imgSKIN,imgFace,imgCanny,imgHair,imgBGR):
     useless,theta = meanBrightness(imgSKIN=imgSKIN, imgGRAY=imgFace)
-
     print("平均亮度",theta)
     sp = imgSKIN.shape
     divisionCount = math.floor(sp[1]/6)
@@ -580,22 +580,21 @@ def processImg(img):
     imgFace = tailorImg(img,faces)
     cv2.imshow("img", imgFace)
     #获取imgFace的肤色图
-
-    skinCounter,imgFace_Skin = skinModel(imgFace)
-
     imgFace = removeBackground(imgFace)
 
+    skinCounter,imgFace_Skin = skinModel(imgFace)
+    cv2.imshow("skin", imgFace_Skin)
 
     if skinCounter<imgFace_Skin.shape[0]*imgFace_Skin.shape[1]/5:
         print(skinCounter,imgFace_Skin.shape[0]*imgFace_Skin.shape[1])
-        print("肤色检测：少于1/5区域，模型缺陷，无法分区处理，采用全局阈值")
-        result = globalThresholdMothod.globalThreshod(img)
+        print("肤色检测：少于1/5区域，肤色模型沦陷，采用非肤色模式")
+        result = nonSkinMode.processImg(img)
         return result;
     else:
-        cv2.imshow("skin", imgFace_Skin)
 
         #去除肤色噪点
         imgFace_Gray = cv2.cvtColor(imgFace, cv2.COLOR_BGR2GRAY)
+
         imgFace_Skin = removeSkinNoise(imgFace_Gray,imgFace_Skin)
         ####################################################
 
@@ -616,10 +615,11 @@ def processImg(img):
         cv2.imshow("face_threshold",imgFace_thresh)
         #轮廓补充
         #result = skeletonComplete(imgFace_thresh,imgSKIN=newSkin,imgFace=newFace)
-        skeletonFace = removeBackground(newFace, (0, 0, 0))
-        cv2.imshow("skeletonFace",skeletonFace)
+        skeletonFace = removeBackground(newBGR, (0, 0, 0))
         skeleton = histUtil.getSkeleton(skeletonFace, 1, 1)
+        skeleton = RemoveSmallRegion(skeleton,200,0,0)
 
+        cv2.imshow("skeleton",skeleton)
         result = cv2.bitwise_and(imgFace_thresh, skeleton)
         return result
 #整套图片处理
@@ -642,8 +642,8 @@ def createResult():
 
 #单个图片处理
 def unitTest():
-    img = cv2.imread("img/love.jpg",1)
-    #img = cv2.imread("imageTailor/1 (482).jpg")
+    #img = cv2.imread("imageTailor/1 (1).jpg",1)
+    img = cv2.imread("img/1.jpg")
     img = cv2.medianBlur(img, 3)
     dst = processImg(img)
 
@@ -654,10 +654,10 @@ def unitTest():
     cv2.imshow("result",dst)
     print(dst.shape)
 if __name__ == '__main__':
-    gamma = 0.70
+    gamma = 0.700
     lamda = 0.7000
     bata = 0.3000
     lamda1 = 0.35000
     bata1 = 0.65000
-    createResult()
+    unitTest()
     cv2.waitKey(0)

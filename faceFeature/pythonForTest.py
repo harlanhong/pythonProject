@@ -53,20 +53,12 @@ def fourier(hist,Mode,alterComponent = 0,radio = 0):
     return ft
 
 
-#mouse callback function
-def draw_circle(event,x,y,flags,param):
-    if event==cv2.EVENT_LBUTTONDOWN:
-        print(x,y,img[y,x])
-if __name__ == '__main__':
-    # 创建图像与窗口并将窗口与回调函数绑定
-    img = cv2.imread("imageTailor/1 (37).jpg", 0)
-    cv2.namedWindow('image')
-    cv2.setMouseCallback('image', draw_circle)
 
-    while (1):
-        cv2.imshow('image', img)
-        if cv2.waitKey(20) & 0xFF == 27:
-            break
-    cv2.destroyAllWindows()
+
+
+if __name__ == '__main__':
+   t = math.floor(3.455)
+   print(type(t))
+
 
 
