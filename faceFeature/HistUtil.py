@@ -2,6 +2,9 @@ import cv2
 import numpy as np
 import math
 #自定义直方图统计
+
+
+
 def myCalHist(img):
     hist = np.zeros([256,1])
     sp = img.shape
@@ -318,7 +321,9 @@ def removeNoiseOfHist(hist):
     return min,max,result
 
 def getSkeleton(img,removedetails_times,erode_times):#输入为去除背景后的bgr图
-
+    if img.ndim > 2:
+        imgFace = cv2.cvtColor(img,cv2.COLOR_BGR2GRAY)
+    ret,img = cv2.threshold(imgFace,0, 255, cv2.THRESH_OTSU)
     element = cv2.getStructuringElement(cv2.MORPH_CROSS,(5,5))
     img = cv2.erode(img,element,iterations=2)
     erode_output = img.copy()
@@ -327,23 +332,33 @@ def getSkeleton(img,removedetails_times,erode_times):#输入为去除背景后�
     closeResult = img.copy()
     #噪声滤除
     if removedetails_times ==1:
-        closeResult=cv2.morphologyEx(img,cv2.MORPH_CLOSE,element,iterations=1)
-        openResult = cv2.morphologyEx(closeResult,cv2.MORPH_OPEN,element,iterations=1)
+        openResult = cv2.morphologyEx(img,cv2.MORPH_OPEN,element,iterations=1)
+        closeResult=cv2.morphologyEx(openResult,cv2.MORPH_CLOSE,element,iterations=1)
+        #openResult = cv2.morphologyEx(closeResult,cv2.MORPH_OPEN,element,iterations=1)
     elif removedetails_times == 2:
         openResult = cv2.morphologyEx(img,cv2.MORPH_OPEN,element,iterations=1)
         closeResult=cv2.morphologyEx(openResult,cv2.MORPH_CLOSE,element,iterations=1)
         openResult = cv2.morphologyEx(closeResult,cv2.MORPH_OPEN,element,iterations=1)
         closeResult=cv2.morphologyEx(openResult,cv2.MORPH_CLOSE,element,iterations=1)
+    elif removedetails_times == 3:
+        openResult = cv2.morphologyEx(img, cv2.MORPH_OPEN, element, iterations=1)
+        closeResult = cv2.morphologyEx(openResult, cv2.MORPH_CLOSE, element, iterations=1)
+        openResult = cv2.morphologyEx(closeResult, cv2.MORPH_OPEN, element, iterations=1)
+        closeResult = cv2.morphologyEx(openResult, cv2.MORPH_CLOSE, element, iterations=1)
+        openResult = cv2.morphologyEx(closeResult, cv2.MORPH_OPEN, element, iterations=1)
+        closeResult = cv2.morphologyEx(openResult, cv2.MORPH_CLOSE, element, iterations=1)
     #腐蚀操作
     erode_output = cv2.erode(closeResult,element,erode_times)
     ret,closeResult = cv2.threshold(closeResult,5,255,cv2.THRESH_BINARY)
     ret,erode_output = cv2.threshold(erode_output,5,255,cv2.THRESH_BINARY)
     outLineResult = cv2.subtract(closeResult,erode_output)
     result = cv2.medianBlur(outLineResult,3)
-    if result.ndim >1:
+    print(result.ndim)
+    if result.ndim >2:
         result = cv2.cvtColor(result,cv2.COLOR_BGR2GRAY)
     ret,result = cv2.threshold(result,100,255,cv2.THRESH_BINARY_INV)
     result = cv2.erode(result,element,iterations=1)
+    #result = RemoveSelectRegion(result,3000,0,0,0)
     return result
 #去除指定大小的区域
 def RemoveSelectRegion(src,AreaHigh,AreaLow,CheckMode,NeiborMode):
@@ -419,5 +434,55 @@ def RemoveSelectRegion(src,AreaHigh,AreaLow,CheckMode,NeiborMode):
                 dst[i,j] = src[i,j]
 
     return dst
+def tailorImg(img,faces):
+    if len(faces) == 1 or len(faces)>1:
+        for i,(x,y,w,h) in enumerate(faces):
+            #注意不要越界
+            #cv2.rectangle(img, (x, y), (x+w, y+h), (255, 0, 0), 3)
+            new_x = x - int(w/3) if x - int(w/3)>0 else 0
+            new_y = y - int(h/3) if y - int(h/3)>0 else 0
+            new_w = w +int(2/3*w) if new_x+w+int(2/3*w)<img.shape[1] else img.shape[1]-new_x
+            new_h = h +int(2/3*h) if new_y+h +int(2/3*h)<img.shape[0] else img.shape[0]-new_y
+            new_img = img[new_y:new_y+new_h,new_x:new_x+new_w]
+            #cv2.rectangle(img, (new_x, new_y), (new_w+new_x, new_y+new_h), (0, 0, 255), 3)
+            #cv2.imshow("tailorImg",img)
+            return new_img
+def detectFaces(srcImg):
+    img = srcImg.copy()
+    #print 1
+    face_cascade = cv2.CascadeClassifier("data/haarcascades/haarcascade_frontalface_default.xml")
+    if img.ndim == 3:
+        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    else:
+        gray = img
+    faces = face_cascade.detectMultiScale(gray, 1.3, 5)#1.3and5  counts to the result of face recognation
+    return faces
+def removeBackground(srcImg,color=(255,255,255)):
+    img = srcImg.copy()
+    sp = img.shape
+    mask = np.zeros((img.shape[0]+2,img.shape[1]+2),np.uint8)
+    mask1 = np.zeros((img.shape[0]+2,img.shape[1]+2),np.uint8)
+
+    cv2.floodFill(img, mask, (3, 3), color, (3, 3, 3), (3, 3, 3), 8)
+
+    cv2.floodFill(img,mask1,(sp[1]-3,3),color, (3, 3, 3), (3, 3, 3), 8)
+    #img = myFloodFill(img,mask,(5,5),(3, 3, 3), (3, 3, 3), 8)
+    #mask = np.zeros((img.shape[0]+2,img.shape[1]+2),np.uint8)
+    #cv2.floodFill(img, mask, (5,img.shape[0]-5), (255, 255, 255), (3, 3, 3), (3, 3, 3), 8)
+    cv2.imshow("floodfill", img)
+    return img
+if __name__ == '__main__':
+    tt = 340
+    img = cv2.imread("imageTailor/1 ("+str(tt)+").jpg")
+    faces = detectFaces(img)
+    imgFace = tailorImg(img, faces)
+    #gray = cv2.cvtColor(imgFace,cv2.COLOR_BGR2GRAY)
+    imgFace = removeBackground(imgFace, (0, 0, 0))
+
+    cv2.imshow("imgFace",imgFace)
+    result = getSkeleton(imgFace,1,2)
+    cv2.imshow("result ",result)
+    cv2.imwrite("skeleton/"+str(tt)+"cm6.jpg",result)
+    cv2.waitKey(0)
 
 

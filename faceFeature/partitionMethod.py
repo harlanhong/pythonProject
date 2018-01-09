@@ -163,7 +163,6 @@ def tailorImg(img,faces):
             new_w = w +int(2/3*w) if new_x+w+int(2/3*w)<img.shape[1] else img.shape[1]-new_x
             new_h = h +int(2/3*h) if new_y+h +int(2/3*h)<img.shape[0] else img.shape[0]-new_y
             new_img = img[new_y:new_y+new_h,new_x:new_x+new_w]
-            #cv2.imshow("new_img",new_img)
             return new_img
 #计算肤色部分的平均灰度
 def meanBrightness(imgSKIN,imgGRAY):
@@ -434,7 +433,7 @@ def myThreshold(imgGray,imgSkin,skinPoint,thresh,globalAvg=0,localAvg=0):
     sp =  imgGray.shape
     dst = imgGray.copy()
     #print(thresh,globalAvg,localAvg)
-    if globalAvg<145:
+    if globalAvg<135:
         for i in range(sp[0]):
             for j in range(sp[1]):
                 if imgSkin[i,j] >100:
@@ -550,6 +549,7 @@ def removeSkinNoise(imgGray,imgBin):
         for j in range(sp[1]):
             if imgBin[i,j]<100:
                 img[i,j]=255
+    cv2.imshow("11",img)
     hist = histUtil.myCalHist(img)
     histImg = histUtil.DrawHist(hist, [255, 255, 255])
     cv2.imshow("histInit", histImg)
@@ -561,11 +561,11 @@ def removeSkinNoise(imgGray,imgBin):
             if imgBin[i, j] > 100:
                 if imgGray[i,j]<min or imgGray[i,j]>max:
                     imgBin[i,j] = 0
+    cv2.imshow("newskin",imgBin)
     return imgBin
 
 
 #总的图片处理过程
-
 def processImg(img):
     kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))
     if img.shape[1]>800 or img.shape[0]>800:
@@ -578,6 +578,7 @@ def processImg(img):
         return globalThresholdMothod.globalThreshod(img)
     #获取到的人物头像前景图
     imgFace = tailorImg(img,faces)
+    cv2.imwrite("skeleton/1 "+str(name)+".jpg",imgFace)
     cv2.imshow("img", imgFace)
     #获取imgFace的肤色图
     imgFace = removeBackground(imgFace)
@@ -602,6 +603,7 @@ def processImg(img):
         #对肤色图进行修剪
 
         imgFace_Skin = RemoveSelectRegion(imgFace_Skin,5000,0,0,1)
+        cv2.imshow("RemoveSelectRegion",imgFace_Skin)
 
         #imgHair = hairProcess(imgFace)
         #cv2.imshow("skinTemp", imgFace_Skin)
@@ -613,6 +615,7 @@ def processImg(img):
         cv2.imshow("canny",canny)
         imgFace_thresh,newSkin,newFace,newBGR = divisionThreshold(imgSKIN=imgFace_Skin,imgFace=imgFace_Gray,imgCanny=canny,imgHair= None,imgBGR = imgFace)
         cv2.imshow("face_threshold",imgFace_thresh)
+        cv2.imwrite("skeleton/thresh.jpg",imgFace_thresh)
         #轮廓补充
         #result = skeletonComplete(imgFace_thresh,imgSKIN=newSkin,imgFace=newFace)
         skeletonFace = removeBackground(newBGR, (0, 0, 0))
@@ -620,6 +623,7 @@ def processImg(img):
         skeleton = RemoveSmallRegion(skeleton,200,0,0)
 
         cv2.imshow("skeleton",skeleton)
+        cv2.imwrite("skeleton/38skeleton.jpg",skeleton)
         result = cv2.bitwise_and(imgFace_thresh, skeleton)
         return result
 #整套图片处理
@@ -627,12 +631,12 @@ def createResult():
     i = 1
     while i <= 907:
         print(i)
-        img = cv2.imread("imageTailor/1 (" + str(i) + ").jpg", 1)
-        #img = cv2.imread("img/"+str(i)+".jpg")
+        #img = cv2.imread("imageTailor/1 (" + str(i) + ").jpg", 1)
+        img = cv2.imread("img/"+str(i)+".jpg")
         i = i + 1
         if img is None:
             continue;
-        img = cv2.medianBlur(img,3)
+        #img = cv2.medianBlur(img,3)
         dst = processImg(img)
         dst = cv2.medianBlur(dst, 3)
         dst = RemoveSelectRegion(dst, 20, 0, 0, 1)
@@ -642,18 +646,20 @@ def createResult():
 
 #单个图片处理
 def unitTest():
-    #img = cv2.imread("imageTailor/1 (1).jpg",1)
-    img = cv2.imread("img/1.jpg")
+    img = cv2.imread("img/"+str(name)+".jpg",1)
+    #img = cv2.imread("imageTailor/1 ("+str(name)+").jpg")
     img = cv2.medianBlur(img, 3)
     dst = processImg(img)
-
+    #cv2.imwrite("skeleton/1 "+str(name)+".jpg",dst)
     dst = cv2.medianBlur(dst, 3)
     dst = RemoveSelectRegion(dst, 20, 0, 0, 1)
     #dst = delete_jut(dst, 1, 1, 1)
     #dst = delete_jut(dst, 1, 1, 0)
+    cv2.imwrite("skeleton/1 "+str(name)+"_.jpg",dst)
     cv2.imshow("result",dst)
     print(dst.shape)
 if __name__ == '__main__':
+    name = 39
     gamma = 0.700
     lamda = 0.7000
     bata = 0.3000
