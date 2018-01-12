@@ -7,59 +7,68 @@ import skimage
 from matplotlib import pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 
+
+#OSTU大津法
+def GetOSTUThreshold(histGram):
+    X, Y, Amount = 0,0,0;
+    MinValue, MaxValue=0,0;
+    Threshold = 0;
+    for MinValue in range(256):
+        if histGram[MinValue]!=0:
+            break;
+    for MaxValue in range(255,-1,-1):
+        if histGram[MaxValue]!=0:
+            break;
+    if MaxValue == MinValue: return MaxValue; # 图像中只有一个颜色
+    if MinValue + 1 == MaxValue: return MinValue; # 图像中只有二个颜色
+    for Y in range(MinValue,MaxValue+1):Amount += histGram[Y];#像素个数
+    PixelIntegral = 0;
+    for Y in range(MinValue, MaxValue + 1): PixelIntegral += histGram[Y] * Y;#像素总值
+    SigmaB = -1;
+    PixelBack = 0
+    PixelIntegralBack=0
+    for Y in range(MinValue, MaxValue + 1):
+        PixelBack = PixelBack + histGram[Y];
+        PixelFore = Amount - PixelBack;
+        OmegaBack = float(PixelBack / Amount);
+        OmegaFore = float(PixelFore / Amount);
+        PixelIntegralBack += histGram[Y] * Y;
+        PixelIntegralFore = PixelIntegral - PixelIntegralBack;
+        MicroBack = float(PixelIntegralBack / PixelBack);
+        MicroFore = float(PixelIntegralFore / PixelFore);
+        Sigma = OmegaBack * OmegaFore * (MicroBack - MicroFore) * (MicroBack - MicroFore);
+        if (Sigma > SigmaB):
+            SigmaB = Sigma;
+            Threshold = Y;
+    return Threshold;
+#手动画出直方图和阈值
+def calcAndDrawHist(image, color):
+    hist = cv2.calcHist([image], [0], None, [256], [0.0, 255.0])
+    minVal, maxVal, minLoc, maxLoc = cv2.minMaxLoc(hist)
+    histImg = np.zeros([256, 256, 3], np.uint8)
+    hpt = int(0.9 * 256);
+    for h in range(256):
+        intensity = int(hist[h] * hpt / maxVal)
+        cv2.line(histImg, (h, 256), (h, 256 - intensity), color)
+    thresh = GetOSTUThreshold(hist)
+    cv2.line(histImg, (thresh, 255), (thresh,0), [0,0,255])
+    return thresh,histImg;
 if __name__ == '__main__':
-    # img_man = cv2.imread('woman.jpg', 0)  # 直接读为灰度图像
-    # plt.subplot(121), plt.imshow(img_man, 'gray'), plt.title('origial')
-    # plt.xticks([]), plt.yticks([])
-    # # --------------------------------
-    # rows, cols = img_man.shape
-    # mask = np.ones(img_man.shape, np.uint8)
-    # mask[rows / 2 - 30:rows / 2 + 30, cols / 2 - 30:cols / 2 + 30] = 0
-    # # --------------------------------
-    # f1 = np.fft.fft2(img_man)
-    # f1shift = np.fft.fftshift(f1)
-    # f1shift = f1shift * mask
-    # f2shift = np.fft.ifftshift(f1shift)  # 对新的进行逆变换
-    # img_new = np.fft.ifft2(f2shift)
-    # # 出来的是复数，无法显示
-    # img_new = np.abs(img_new)
-    # # 调整大小范围便于显示
-    # img_new = (img_new - np.amin(img_new)) / (np.amax(img_new) - np.amin(img_new))
-    # plt.subplot(122), plt.imshow(img_new, 'gray'), plt.title('Highpass')
-    # plt.xticks([]), plt.yticks([])
-    myfont = matplotlib.font_manager.FontProperties(fname='c:\\windows\\fonts\\simfang.ttf')
+    img = cv2.imread('2.3/11.jpg', 0)  # 直接读为灰度图像
+    thresh,histimg = calcAndDrawHist(img,[255,255,255])
+    cv2.imshow("HistByHand",histimg)
+    cv2.imwrite("2.3/11_HistByHand.jpg",histimg)
+    cv2.imshow("lena",img)
+    cv2.imwrite("2.3/11_Gray.jpg",img)
 
-    img = cv2.imread("2.2/8.png")
-    img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-    plt.subplot(221), plt.title('原图', fontproperties=myfont)
-    plt.imshow(img)
-    plt.xticks([]), plt.yticks([])
+    ret,result = cv2.threshold(img,thresh,255,cv2.THRESH_BINARY)
+    cv2.imshow("binary",result)
+    cv2.imwrite("2.3/11_binary.jpg",result)
 
-    img = cv2.getStructuringElement(cv2.MORPH_CROSS,(5,5))
-    #img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-    plt.subplot(222), plt.title('核结构', fontproperties=myfont)
-    plt.imshow(img)
-    plt.xticks([]), plt.yticks([])
-
-    img = cv2.imread("2.2/dilate.png")
-    img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-    plt.subplot(223), plt.title('膨胀例图', fontproperties=myfont)
-    plt.imshow(img)
-    plt.xticks([]), plt.yticks([])
-
-    img = cv2.imread("2.2/erode.png")
-    img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-    plt.subplot(224), plt.title('腐蚀例图', fontproperties=myfont)
-    plt.imshow(img)
-    plt.xticks([]), plt.yticks([])
-
-
-
+    #使用python画出直方图
+    plt.figure("7_HistByPython")
+    arr = img.flatten()
+    n, bins, patches = plt.hist(arr, bins=256, normed=1, facecolor='green', alpha=0.75)
     plt.show()
-   #
-   #  img = cv2.imread("2.3/1.jpg")
-   #  dst = cv2.GaussianBlur(img,ksize=(5, 5), sigmaX=1.0,sigmaY=1.0)
-   #  cv2.imshow("dst",dst)
-   #  cv2.imwrite("2.3/2.jpg",dst)
-   #  cv2.imshow("img",img)
-   #  cv2.waitKey(0)
+
+    cv2.waitKey(0)

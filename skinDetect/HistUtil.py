@@ -13,16 +13,16 @@ def myCalHist(img,N):
     return hist
 def DrawHist(hist, color,N,thresh = -1):
     minVal, maxVal, minLoc, maxLoc = cv2.minMaxLoc(hist)
-    histImg = np.zeros([512,256,3], np.uint8)
+    histImg = np.zeros([256,256,3], np.uint8)
 
     hpt = int(0.9* 256);
     #cv2.line(histImg, (0, 256), (256, 256), [0,0,255])
     for h in range(N):
             intensity = int(hist[h]*hpt/maxVal)
             if intensity!=0:
-                cv2.line(histImg,(h,256), (h,256-intensity), color)
+                cv2.line(histImg,(h,256) (h,256-intensity), color)
     if thresh != -1:
-        cv2.line(histImg, (thresh, 512), (thresh,0), [0,0,255])
+        cv2.line(histImg, (thresh, 255), (thresh,0), [0,0,255])
     return histImg;
 #直方图平滑处理
 #插值平滑
